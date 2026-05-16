@@ -22,3 +22,31 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local planning docs (kept private)
+docs/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Expo
+.expo/
+.expo-shared/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# Native build artifacts
+ios/
+android/
+*.xcworkspace
+*.xcodeproj
+
+# One-time setup script (kept out of history)
+scripts/
