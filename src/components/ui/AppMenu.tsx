@@ -6,18 +6,21 @@ import { colors, spacing, typography } from "@/theme";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
-const menuItems: { label: string; icon: IconName; href: string }[] = [
-  { label: "Log Vitals", icon: "list-outline", href: "/(app)/log-bp" },
-  { label: "Mood Tracker", icon: "happy-outline", href: "/(app)/log-mood" },
-  { label: "Chatbot", icon: "chatbox-outline", href: "/(app)/chatbot" },
-  { label: "Resources", icon: "bookmark-outline", href: "/(app)/community" },
-  { label: "History", icon: "time-outline", href: "/(app)/health-log" },
+const menuItems: { label: string; icon: IconName; href: string; route: string }[] = [
+  { label: "Log Vitals", icon: "list-outline", href: "/(app)/log-bp", route: "log-bp" },
+  { label: "Mood Tracker", icon: "happy-outline", href: "/(app)/log-mood", route: "log-mood" },
+  { label: "Chatbot", icon: "chatbox-outline", href: "/(app)/chatbot", route: "chatbot" },
+  { label: "Resources", icon: "bookmark-outline", href: "/(app)/community", route: "community" },
+  { label: "History", icon: "time-outline", href: "/(app)/health-log", route: "health-log" },
+  { label: "Test Heart Rate", icon: "camera-outline", href: "/(app)/camera-rppg", route: "camera-rppg" },
+  { label: "Homepage", icon: "home-outline", href: "/(app)/dashboard", route: "dashboard" },
 ];
 
 export function AppMenuButton() {
   const segments = useSegments();
   const [isOpen, setIsOpen] = useState(false);
   const isAppRoute = segments[0] === "(app)";
+  const currentRoute = segments[segments.length - 1];
 
   if (!isAppRoute) return null;
 
@@ -40,16 +43,22 @@ export function AppMenuButton() {
       <Modal visible={isOpen} animationType="fade" transparent onRequestClose={() => setIsOpen(false)}>
         <Pressable style={styles.overlay} onPress={() => setIsOpen(false)}>
           <Pressable style={styles.panel}>
-            {menuItems.map((item) => (
-              <Pressable
-                key={item.label}
-                onPress={() => navigate(item.href)}
-                style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-              >
-                <Ionicons name={item.icon} size={32} color="#0D1727" />
-                <Text style={styles.menuLabel}>{item.label}</Text>
-              </Pressable>
-            ))}
+            {menuItems.map((item) => {
+              const isActive = currentRoute === item.route;
+
+              return (
+                <Pressable
+                  key={item.label}
+                  onPress={() => navigate(item.href)}
+                  style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+                >
+                  <Ionicons name={item.icon} size={30} color="#0D1727" />
+                  <Text style={[styles.menuLabel, isActive && styles.menuLabelActive]}>
+                    {item.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </Pressable>
         </Pressable>
       </Modal>
@@ -80,15 +89,15 @@ const styles = StyleSheet.create({
   },
   panel: {
     width: "100%",
-    maxWidth: 384,
+    maxWidth: 392,
     borderRadius: 42,
     backgroundColor: "rgba(221, 233, 255, 0.88)",
-    paddingHorizontal: 38,
-    paddingVertical: 30,
-    gap: 22,
+    paddingHorizontal: 40,
+    paddingVertical: 24,
+    gap: 16,
   },
   menuItem: {
-    minHeight: 58,
+    minHeight: 54,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.lg,
@@ -99,8 +108,11 @@ const styles = StyleSheet.create({
   },
   menuLabel: {
     color: "#0D1727",
-    fontSize: 24,
-    lineHeight: 32,
+    fontSize: 23,
+    lineHeight: 31,
     fontFamily: typography.family.base,
+  },
+  menuLabelActive: {
+    fontWeight: typography.weight.bold,
   },
 });
