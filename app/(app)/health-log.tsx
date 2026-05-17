@@ -102,9 +102,9 @@ export default function HealthLogScreen() {
                   <Body
                     style={[
                       styles.dayText,
-                      isSelected && styles.selectedDayText,
                       !isCurrentMonth && styles.otherMonthText,
-                      today && !isSelected && { color: colors.accent.rose, fontWeight: "bold" }
+                      today && !isSelected && { color: colors.accent.rose, fontWeight: "bold" },
+                      isSelected && styles.selectedDayText,
                     ]}
                   >
                     {format(day, "d")}
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   otherMonthText: {
-    color: colors.border.strong,
+    color: "rgba(255, 255, 255, 0.36)",
   },
   dotsRow: {
     flexDirection: "row",
