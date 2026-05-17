@@ -32,6 +32,10 @@ export default function AppLayout() {
       <Tabs.Screen name="log-mood" options={{ href: null, title: "Log Mood" }} />
       <Tabs.Screen name="camera-rppg" options={{ href: null, title: "Measure Heart Rate" }} />
       <Tabs.Screen name="voice-journal" options={{ href: null, title: "Voice Journal" }} />
+      <Tabs.Screen
+        name="voice-journal-native"
+        options={{ href: null, title: "Voice Journal (Native)" }}
+      />
       <Tabs.Screen name="doctor-prep" options={{ href: null, title: "Doctor Visit" }} />
       <Tabs.Screen name="self-advocacy" options={{ href: null, title: "Self-advocacy" }} />
       <Tabs.Screen name="alert/red-flag" options={{ href: null, title: "Alert" }} />
