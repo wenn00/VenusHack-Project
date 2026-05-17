@@ -95,22 +95,24 @@ export default function HealthLogScreen() {
             return (
               <TouchableOpacity
                 key={i}
-                style={[styles.dayCell, isSelected && styles.selectedDay]}
+                style={styles.dayCell}
                 onPress={() => setSelectedDate(day)}
               >
-                <Body
-                  style={[
-                    styles.dayText,
-                    isSelected && styles.selectedDayText,
-                    !isCurrentMonth && styles.otherMonthText,
-                    today && !isSelected && { color: colors.accent.rose, fontWeight: "bold" }
-                  ]}
-                >
-                  {format(day, "d")}
-                </Body>
-                <View style={styles.dotsRow}>
-                  {recentBp.some(bp => isSameDay(new Date(bp.measuredAt), day)) && <View style={styles.dot} />}
-                  {recentMood.some(m => isSameDay(new Date(m.loggedAt), day)) && <View style={[styles.dot, { backgroundColor: colors.status.yellow }]} />}
+                <View style={[styles.dayContent, isSelected && styles.selectedDay]}>
+                  <Body
+                    style={[
+                      styles.dayText,
+                      isSelected && styles.selectedDayText,
+                      !isCurrentMonth && styles.otherMonthText,
+                      today && !isSelected && { color: colors.accent.rose, fontWeight: "bold" }
+                    ]}
+                  >
+                    {format(day, "d")}
+                  </Body>
+                  <View style={styles.dotsRow}>
+                    {recentBp.some(bp => isSameDay(new Date(bp.measuredAt), day)) && <View style={styles.dot} />}
+                    {recentMood.some(m => isSameDay(new Date(m.loggedAt), day)) && <View style={[styles.dot, { backgroundColor: colors.status.yellow }]} />}
+                  </View>
                 </View>
               </TouchableOpacity>
             );
@@ -262,29 +264,34 @@ const styles = StyleSheet.create({
   },
   weekDaysRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   weekDayText: {
-    width: 40,
+    width: `${100 / 7}%`,
     textAlign: "center",
     fontWeight: "600",
   },
   daysGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
+    alignContent: "flex-start",
   },
   dayCell: {
-    width: 44,
-    height: 48,
+    width: `${100 / 7}%`,
+    height: 42,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
+    marginBottom: spacing.xs,
+  },
+  dayContent: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
   },
   selectedDay: {
     backgroundColor: colors.accent.rose,
-    borderRadius: radius.pill,
   },
   dayText: {
     fontSize: 16,
