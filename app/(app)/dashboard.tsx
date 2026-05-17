@@ -16,9 +16,7 @@ export default function DashboardScreen() {
   });
 
   return (
-    <Screen contentStyle={styles.screen}>
-      <Text style={styles.brand}>Kairos</Text>
-
+    <Screen contentStyle={styles.screen} fixedOverlay={<StickyLogoHeader />}>
       <Text style={styles.greeting}>
         {getDayGreeting()}, {firstName}.{"\n"}We're here whenever{"\n"}you're ready.
       </Text>
@@ -49,6 +47,14 @@ export default function DashboardScreen() {
         />
       </View>
     </Screen>
+  );
+}
+
+function StickyLogoHeader() {
+  return (
+    <View style={[styles.logoHeader, webBackdropBlurStyle]}>
+      <Text style={styles.brand}>Kairos</Text>
+    </View>
   );
 }
 
@@ -118,12 +124,30 @@ function getDayGreeting(): string {
   return "Evening";
 }
 
+const webBackdropBlurStyle = {
+  backdropFilter: "blur(18px)",
+  WebkitBackdropFilter: "blur(18px)",
+} as ViewStyle;
+
 const styles = StyleSheet.create({
   screen: {
     minHeight: 812,
     paddingHorizontal: 30,
-    paddingTop: 42,
+    paddingTop: 128,
     paddingBottom: 96,
+  },
+  logoHeader: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 116,
+    zIndex: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(23, 80, 172, 0.36)",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.12)",
   },
   brand: {
     alignSelf: "center",
@@ -133,7 +157,6 @@ const styles = StyleSheet.create({
     lineHeight: 34,
   },
   greeting: {
-    marginTop: 52,
     color: colors.fg.primary,
     fontSize: 34,
     lineHeight: 44,

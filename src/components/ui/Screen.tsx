@@ -13,9 +13,10 @@ interface ScreenProps {
   children: React.ReactNode;
   scroll?: boolean;
   contentStyle?: ViewStyle;
+  fixedOverlay?: React.ReactNode;
 }
 
-export function Screen({ children, scroll = true, contentStyle }: ScreenProps) {
+export function Screen({ children, scroll = true, contentStyle, fixedOverlay }: ScreenProps) {
   const Inner = (
     <View style={[styles.inner, contentStyle]}>{children}</View>
   );
@@ -30,6 +31,7 @@ export function Screen({ children, scroll = true, contentStyle }: ScreenProps) {
       ) : (
         Inner
       )}
+      {fixedOverlay}
       <AppMenuButton />
     </SafeAreaView>
   );
