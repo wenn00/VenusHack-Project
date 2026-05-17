@@ -83,7 +83,7 @@ export default function IntakeBasicScreen() {
               <Button
                 key={s.value}
                 label={s.label}
-                variant={stage === s.value ? "primary" : "outline"}
+                variant={stage === s.value ? "primary" : "secondary"}
                 onPress={() => setStage(s.value)}
                 style={styles.stageButton}
               />
