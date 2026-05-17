@@ -8,7 +8,9 @@
 import { RppgError, RppgResult } from "@/types";
 
 const BASE_URL = process.env.EXPO_PUBLIC_RPPG_API_URL;
-const REQUEST_TIMEOUT_MS = 30000;
+// Generous enough to cover a cold-started Render free-tier dyno
+// plus MediaPipe processing on a 0.1-CPU instance.
+const REQUEST_TIMEOUT_MS = 90000;
 
 export async function measureRppg(videoUri: string): Promise<RppgResult> {
   if (!BASE_URL) {
