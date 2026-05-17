@@ -33,6 +33,14 @@
         {
           "cameraPermission": "Allow Kairos to access your camera to estimate heart rate."
         }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Kairos uses the microphone to transcribe your voice journal entries into text.",
+          "speechRecognitionPermission": "Kairos transcribes your voice journal to help you log symptoms and feelings hands-free.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+        }
       ]
     ],
     "experiments": {
