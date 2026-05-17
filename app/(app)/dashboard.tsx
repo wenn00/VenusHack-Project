@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
 import Svg, { Circle, Line, Path, Rect } from "react-native-svg";
 import { Screen } from "@/components/ui/Screen";
 import { useUserData } from "@/contexts/UserDataContext";
@@ -52,7 +52,7 @@ export default function DashboardScreen() {
 
 function StickyLogoHeader() {
   return (
-    <View style={[styles.logoHeader, webBackdropBlurStyle]}>
+    <View style={[styles.logoHeader, Platform.OS === "web" && webBackdropBlurStyle]}>
       <Text style={styles.brand}>Kairos</Text>
     </View>
   );
@@ -145,6 +145,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: 82,
     zIndex: 12,
+    elevation: 12,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(23, 80, 172, 0.18)",
