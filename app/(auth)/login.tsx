@@ -63,7 +63,9 @@ export default function LoginScreen() {
     setIsBusy(true);
     try {
       await verifyOtp(email.toLowerCase(), otp);
-      // RootGate will handle the redirect to dashboard
+      // RootGate does not auto-redirect away from the login screen, so
+      // navigate explicitly once verifyOtp has set the session.
+      router.replace("/(app)/dashboard");
     } catch (err) {
       console.error("[verify] error:", err);
       Alert.alert("Verification Failed", "Invalid or expired code.");
