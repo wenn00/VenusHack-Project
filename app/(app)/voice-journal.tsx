@@ -12,7 +12,6 @@ import { supabase } from "@/services/supabase";
 
 /**
  * Voice Journal Screen
- *
  * Uses expo-speech-recognition for real-time transcription.
  * Saves results to Supabase `voice_journal_entries`.
  */
