@@ -8,10 +8,11 @@
  * HealthKit wired up in the managed Expo workflow.
  */
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/services/supabase";
 import { generateLiveVitals } from "@/lib/mock-data";
+import { seedDemoData } from "@/lib/seed-demo";
 import { summarizeKpin } from "@/lib/kpin";
 import { evaluateBaselineRisk } from "@/lib/risk-analysis";
 import {
@@ -56,6 +57,11 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
   const [activeEvaluations, setActiveEvaluations] = useState<KpinEvaluation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Demo body data is seeded at most once per provider mount. The empty-data
+  // check below is itself idempotent, but this ref also blocks a concurrent
+  // double-seed if refresh() is somehow called twice in flight.
+  const seedAttemptedRef = useRef(false);
+
   const refresh = useCallback(async () => {
     if (!user) {
       setProfile(null);
@@ -64,39 +70,53 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
       setRecentBp([]);
       setRecentMood([]);
       setIsLoading(false);
+      // Allow a different account signed in later to be seeded too.
+      seedAttemptedRef.current = false;
       return;
     }
 
     setIsLoading(true);
     try {
       // Fan out the queries in parallel; RLS scopes them to this user.
-      const [profileRes, pregRes, familyRes, bpRes, moodRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-        supabase
-          .from("pregnancy_history")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from("family_history")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from("bp_readings")
-          .select("*")
-          .order("measured_at", { ascending: false })
-          .limit(RECENT_BP_LIMIT),
-        supabase
-          .from("mood_entries")
-          .select("*")
-          .order("logged_at", { ascending: false })
-          .limit(RECENT_MOOD_LIMIT),
-      ]);
+      const fetchAll = () =>
+        Promise.all([
+          supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+          supabase
+            .from("pregnancy_history")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from("family_history")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+          supabase
+            .from("bp_readings")
+            .select("*")
+            .order("measured_at", { ascending: false })
+            .limit(RECENT_BP_LIMIT),
+          supabase
+            .from("mood_entries")
+            .select("*")
+            .order("logged_at", { ascending: false })
+            .limit(RECENT_MOOD_LIMIT),
+        ]);
+
+      let [profileRes, pregRes, familyRes, bpRes, moodRes] = await fetchAll();
+
+      // A fresh anonymous account has no blood-pressure history. Seed the
+      // demo body data (BP + rPPG vitals) once, then re-fetch so the screens
+      // render with it. Everything else is logged live during the demo.
+      if (!seedAttemptedRef.current && (bpRes.data ?? []).length === 0) {
+        seedAttemptedRef.current = true;
+        await seedDemoData(user.id);
+        [profileRes, pregRes, familyRes, bpRes, moodRes] = await fetchAll();
+      }
 
       setProfile(profileRes.data ? mapProfile(profileRes.data) : null);
       setPregnancyHistory(pregRes.data ? mapPregnancyHistory(pregRes.data) : null);
