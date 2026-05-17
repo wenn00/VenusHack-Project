@@ -1,8 +1,3 @@
-/**
- * Typography tokens.
- * Using system fonts for now; swap with custom font once designer confirms.
- */
-
 import { Platform } from "react-native";
 
 const baseFamily = Platform.select({
@@ -11,17 +6,11 @@ const baseFamily = Platform.select({
   default: "System",
 }) as string;
 
-const brandFamily = Platform.select({
-  ios: "Georgia",
-  android: "serif",
-  default: "Georgia",
-}) as string;
-
 export const typography = {
   family: {
     base: baseFamily,
     display: baseFamily,
-    brand: brandFamily,
+    brand: "PracticesCollectionDemo",
   },
   size: {
     xs: 12,

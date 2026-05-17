@@ -4,6 +4,7 @@
  */
 
 import { Slot, useRouter, useSegments } from "expo-router";
+import { useFonts } from "expo-font";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -40,6 +41,12 @@ function RootGate() {
 }
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    PracticesCollectionDemo: require("../assets/fonts/PracticesCollectionDemo.otf"),
+  });
+
+  if (!fontsLoaded) return null;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
