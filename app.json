@@ -33,8 +33,7 @@
         {
           "cameraPermission": "Allow Kairos to access your camera to estimate heart rate."
         }
-      ],
-      "expo-web-browser"
+      ]
     ],
     "experiments": {
       "typedRoutes": true
