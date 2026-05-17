@@ -6,6 +6,8 @@ import React from "react";
 import { ScrollView, StyleSheet, View, ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { colors, spacing } from "@/theme";
+import { AppMenuButton } from "./AppMenu";
+import { BlueBackground } from "./BlueBackground";
 
 interface ScreenProps {
   children: React.ReactNode;
@@ -20,11 +22,15 @@ export function Screen({ children, scroll = true, contentStyle }: ScreenProps) {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
+      <BlueBackground />
       {scroll ? (
-        <ScrollView contentContainerStyle={styles.scroll}>{Inner}</ScrollView>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          {Inner}
+        </ScrollView>
       ) : (
         Inner
       )}
+      <AppMenuButton />
     </SafeAreaView>
   );
 }
@@ -33,12 +39,16 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.bg.page,
+    position: "relative",
   },
   scroll: {
     flexGrow: 1,
   },
   inner: {
     flex: 1,
+    width: "100%",
+    maxWidth: 440,
+    alignSelf: "center",
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
     gap: spacing.lg,

@@ -1,13 +1,12 @@
 import { useState } from "react";
-import { Alert, StyleSheet, TextInput, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Body } from "@/components/ui/Body";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Heading } from "@/components/ui/Heading";
 import { Screen } from "@/components/ui/Screen";
+import { TextField } from "@/components/ui/TextField";
 import { useAuth } from "@/contexts/AuthContext";
-import { colors, radius, spacing } from "@/theme";
+import { spacing, typography } from "@/theme";
 
 export default function LoginScreen() {
   const { signInWithOtp, verifyOtp, signInAnonymous } = useAuth();
@@ -82,67 +81,62 @@ export default function LoginScreen() {
   }
 
   return (
-    <Screen>
-      <View style={styles.hero}>
-        <Heading level={1}>Kairos</Heading>
+    <Screen contentStyle={styles.screen}>
+      <View style={styles.header}>
+        <Text style={styles.brand}>Kairos</Text>
         <Body tone="muted" size="lg">
-          Heart health, made personal — for every step of your pregnancy.
+          {step === "email"
+            ? "Welcome back! Log into an existing account here."
+            : `Enter the code sent to ${email}`}
         </Body>
       </View>
 
-      <Card>
-        <Heading level={3}>{step === "email" ? "Login" : "Verify Code"}</Heading>
-        <Body tone="muted">
-          {step === "email"
-            ? "Enter your email to receive a secure login code."
-            : `Enter the code sent to ${email}`}
-        </Body>
-
-        {step === "email" ? (
-          <View style={styles.inputGroup}>
-            <TextInput
-              style={styles.input}
-              placeholder="Email address"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              placeholderTextColor={colors.fg.muted}
-            />
-            <Button
-              label={isBusy ? "Sending..." : "Login"}
-              onPress={handleSendOtp}
-              disabled={isBusy}
-            />
-          </View>
-        ) : (
-          <View style={styles.inputGroup}>
-            <TextInput
-              style={styles.input}
-              placeholder="4-digit code"
-              value={otp}
-              onChangeText={setOtp}
-              keyboardType="number-pad"
-              maxLength={6} // Some Otps are 6 digits by default in Supabase
-              placeholderTextColor={colors.fg.muted}
-            />
-            <Button
-              label={isBusy ? "Verifying..." : "Verify & Continue"}
-              onPress={handleVerifyOtp}
-              disabled={isBusy}
-            />
-            <Button
-              label="Back to Email"
-              variant="ghost"
-              onPress={() => setStep("email")}
-              disabled={isBusy}
-            />
-          </View>
-        )}
-      </Card>
+      {step === "email" ? (
+        <View style={styles.form}>
+          <TextField
+            label="Email"
+            required
+            placeholder="Enter email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            editable={!isBusy}
+          />
+          <Button
+            label={isBusy ? "Sending..." : "Sign In"}
+            onPress={handleSendOtp}
+            disabled={isBusy}
+          />
+        </View>
+      ) : (
+        <View style={styles.form}>
+          <TextField
+            label="Verification code"
+            required
+            placeholder="Enter code"
+            value={otp}
+            onChangeText={setOtp}
+            keyboardType="number-pad"
+            maxLength={6}
+            editable={!isBusy}
+          />
+          <Button
+            label={isBusy ? "Verifying..." : "Verify & Continue"}
+            onPress={handleVerifyOtp}
+            disabled={isBusy}
+          />
+          <Button
+            label="Back to Email"
+            variant="ghost"
+            onPress={() => setStep("email")}
+            disabled={isBusy}
+          />
+        </View>
+      )}
 
       <Button
-        label="Don't have an account? Sign Up"
+        label="Create an Account"
         variant="ghost"
         onPress={() => router.push("/(auth)/signup")}
         disabled={isBusy}
@@ -158,21 +152,21 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: {
-    paddingTop: spacing.xxl,
-    gap: spacing.sm,
+  screen: {
+    paddingHorizontal: 40,
+    paddingTop: 70,
+    gap: 32,
   },
-  inputGroup: {
-    gap: spacing.md,
-    marginTop: spacing.sm,
+  header: {
+    gap: spacing.xs,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    fontSize: 16,
-    color: colors.fg.primary,
-    backgroundColor: colors.bg.page,
+  brand: {
+    color: "white",
+    fontFamily: typography.family.brand,
+    fontSize: 42,
+    lineHeight: 50,
+  },
+  form: {
+    gap: 37,
   },
 });

@@ -20,12 +20,12 @@ export function Body({ tone = "default", size = "md", style, children, ...rest }
 
 const styles = StyleSheet.create({
   base: {
-    lineHeight: 22,
+    lineHeight: 24,
   },
   default: { color: colors.fg.primary },
   muted: { color: colors.fg.muted },
-  accent: { color: colors.accent.roseDark },
-  sm: { fontSize: typography.size.sm },
-  md: { fontSize: typography.size.md },
-  lg: { fontSize: typography.size.lg },
+  accent: { color: colors.fg.primary },
+  sm: { fontSize: typography.size.sm, lineHeight: 20 },
+  md: { fontSize: typography.size.md, lineHeight: 24 },
+  lg: { fontSize: typography.size.lg, lineHeight: 28 },
 });

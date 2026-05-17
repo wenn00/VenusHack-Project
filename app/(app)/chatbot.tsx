@@ -21,6 +21,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AppMenuButton } from "@/components/ui/AppMenu";
+import { BlueBackground } from "@/components/ui/BlueBackground";
 import { Body } from "@/components/ui/Body";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
@@ -152,6 +154,7 @@ export default function ChatbotScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["bottom"]}>
+      <BlueBackground />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
@@ -212,6 +215,7 @@ export default function ChatbotScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
+      <AppMenuButton />
     </SafeAreaView>
   );
 }
@@ -220,6 +224,7 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.bg.page,
+    position: "relative",
   },
   flex: { flex: 1 },
   messagesContent: {

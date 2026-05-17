@@ -22,11 +22,14 @@ const styles = StyleSheet.create({
   },
   h1: {
     fontSize: typography.size.xxxl,
+    lineHeight: 44,
   },
   h2: {
     fontSize: typography.size.xxl,
+    lineHeight: 34,
   },
   h3: {
     fontSize: typography.size.lg,
+    lineHeight: 28,
   },
 });

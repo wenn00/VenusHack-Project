@@ -1,32 +1,28 @@
-/**
- * Color palette for Kairos.
- * Placeholder values — replace with designer tokens when ready.
- *
- * Naming convention:
- *   - `bg.*` : background surfaces
- *   - `fg.*` : foreground / text
- *   - `accent.*` : interactive elements (brand pink/rose)
- *   - `status.*` : KPIN levels and feedback
- */
-
 export const colors = {
   bg: {
-    page: "#FFF7F5",
-    card: "#FFFFFF",
-    muted: "#FAEFEC",
+    page: "#1750AC",
+    pageDeep: "#003396",
+    pageBright: "#2B8BFF",
+    card: "rgba(255, 255, 255, 0.08)",
+    muted: "rgba(255, 255, 255, 0.12)",
+    input: "rgba(0, 51, 150, 0.16)",
     overlay: "rgba(0, 0, 0, 0.45)",
   },
   fg: {
-    primary: "#2A1A1F",
-    secondary: "#5A4750",
-    muted: "#8C7C84",
+    primary: "#FFFFFF",
+    secondary: "rgba(255, 255, 255, 0.82)",
+    muted: "rgba(255, 255, 255, 0.64)",
+    placeholder: "rgba(255, 255, 255, 0.5)",
     onAccent: "#FFFFFF",
     onStatus: "#FFFFFF",
   },
   accent: {
-    rose: "#D97A8C",
-    roseDark: "#B85F71",
-    roseLight: "#F8D4DC",
+    blue: "#003396",
+    blueSoft: "rgba(0, 51, 150, 0.4)",
+    blueLight: "#4FA0FF",
+    rose: "#F27E9B",
+    roseDark: "#FFFFFF",
+    roseLight: "rgba(255, 255, 255, 0.18)",
   },
   status: {
     green: "#5BAF7C",
@@ -37,8 +33,9 @@ export const colors = {
     redBg: "#F7DDD8",
   },
   border: {
-    default: "#EFE0DC",
-    strong: "#D6BFB8",
+    default: "rgba(255, 255, 255, 0.34)",
+    strong: "rgba(255, 255, 255, 0.96)",
+    faint: "rgba(255, 255, 255, 0.16)",
   },
 } as const;
 

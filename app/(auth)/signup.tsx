@@ -1,15 +1,14 @@
 import { useState } from "react";
-import { Alert, StyleSheet, TextInput, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Body } from "@/components/ui/Body";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Heading } from "@/components/ui/Heading";
 import { Screen } from "@/components/ui/Screen";
+import { TextField } from "@/components/ui/TextField";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
 import { supabase } from "@/services/supabase";
-import { colors, radius, spacing } from "@/theme";
+import { spacing, typography } from "@/theme";
 import { PregnancyStage } from "@/types";
 
 export default function SignupScreen() {
@@ -116,37 +115,38 @@ export default function SignupScreen() {
   }
 
   return (
-    <Screen>
-      <Heading level={1}>Create Account</Heading>
+    <Screen contentStyle={styles.screen}>
+      <View style={styles.header}>
+        <Text style={styles.title}>{step === "form" ? "Onboarding" : "Verify Email"}</Text>
+        <Body tone="muted" size="lg">
+          {step === "form" ? "First, what’s your name?" : `Enter the code sent to ${email}`}
+        </Body>
+      </View>
 
       {step === "form" ? (
-        <Card style={styles.card}>
-          <View style={styles.inputGroup}>
-            <Body size="sm" style={styles.label}>Full Name</Body>
-            <TextInput
-              style={styles.input}
-              placeholder="Your name"
-              value={fullName}
-              onChangeText={setFullName}
-              placeholderTextColor={colors.fg.muted}
-            />
-          </View>
+        <View style={styles.form}>
+          <TextField
+            label="Full name"
+            required
+            placeholder="Enter your name"
+            value={fullName}
+            onChangeText={setFullName}
+            editable={!isBusy}
+          />
 
-          <View style={styles.inputGroup}>
-            <Body size="sm" style={styles.label}>Email Address</Body>
-            <TextInput
-              style={styles.input}
-              placeholder="Email address"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              placeholderTextColor={colors.fg.muted}
-            />
-          </View>
+          <TextField
+            label="Email"
+            required
+            placeholder="Enter email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            editable={!isBusy}
+          />
 
-          <View style={styles.inputGroup}>
-            <Body size="sm" style={styles.label}>Where are you in your journey?</Body>
+          <View style={styles.stageGroup}>
+            <Body style={styles.label}>Where are you right now?</Body>
             <View style={styles.buttonGroup}>
               {stages.map((s) => (
                 <Button
@@ -165,35 +165,31 @@ export default function SignupScreen() {
             onPress={handleSendOtp}
             disabled={isBusy}
           />
-        </Card>
+        </View>
       ) : (
-        <Card style={styles.card}>
-          <Heading level={3}>Verify Email</Heading>
-          <Body tone="muted">Enter the code sent to {email}</Body>
-
-          <View style={styles.inputGroup}>
-            <TextInput
-              style={styles.input}
-              placeholder="Verification code"
-              value={otp}
-              onChangeText={setOtp}
-              keyboardType="number-pad"
-              maxLength={6}
-              placeholderTextColor={colors.fg.muted}
-            />
-            <Button
-              label={isBusy ? "Verifying..." : "Verify & Create Account"}
-              onPress={handleVerifyAndCreate}
-              disabled={isBusy}
-            />
-            <Button
-              label="Back to Edit Info"
-              variant="ghost"
-              onPress={() => setStep("form")}
-              disabled={isBusy}
-            />
-          </View>
-        </Card>
+        <View style={styles.form}>
+          <TextField
+            label="Verification code"
+            required
+            placeholder="Enter code"
+            value={otp}
+            onChangeText={setOtp}
+            keyboardType="number-pad"
+            maxLength={6}
+            editable={!isBusy}
+          />
+          <Button
+            label={isBusy ? "Verifying..." : "Verify & Create Account"}
+            onPress={handleVerifyAndCreate}
+            disabled={isBusy}
+          />
+          <Button
+            label="Back to Edit Info"
+            variant="ghost"
+            onPress={() => setStep("form")}
+            disabled={isBusy}
+          />
+        </View>
       )}
 
       <Button
@@ -207,30 +203,36 @@ export default function SignupScreen() {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    gap: spacing.lg,
+  screen: {
+    paddingHorizontal: 40,
+    paddingTop: 70,
+    gap: 32,
   },
-  inputGroup: {
+  header: {
     gap: spacing.xs,
   },
+  title: {
+    color: "white",
+    fontSize: 36,
+    lineHeight: 44,
+    fontFamily: typography.family.display,
+  },
+  form: {
+    gap: 37,
+  },
   label: {
-    fontWeight: "600",
-    color: colors.fg.secondary,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    color: "white",
     fontSize: 16,
-    color: colors.fg.primary,
-    backgroundColor: colors.bg.page,
+    lineHeight: 24,
+    fontWeight: "500",
   },
-  buttonGroup: {
+  stageGroup: {
     gap: spacing.sm,
   },
+  buttonGroup: {
+    gap: 11,
+  },
   stageButton: {
-    alignItems: "flex-start",
-    paddingHorizontal: spacing.md,
+    minHeight: 55,
   },
 });

@@ -11,10 +11,17 @@ const baseFamily = Platform.select({
   default: "System",
 }) as string;
 
+const brandFamily = Platform.select({
+  ios: "Georgia",
+  android: "serif",
+  default: "Georgia",
+}) as string;
+
 export const typography = {
   family: {
     base: baseFamily,
     display: baseFamily,
+    brand: brandFamily,
   },
   size: {
     xs: 12,

@@ -32,22 +32,28 @@ export function Button({ label, onPress, variant = "primary", disabled, style }:
 
 const styles = StyleSheet.create({
   base: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: radius.pill,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: 20,
+    borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   primary: {
-    backgroundColor: colors.accent.rose,
+    backgroundColor: colors.accent.blueSoft,
+    borderColor: colors.border.faint,
   },
   secondary: {
-    backgroundColor: colors.bg.muted,
-    borderWidth: 1,
+    backgroundColor: "transparent",
     borderColor: colors.border.default,
   },
   ghost: {
     backgroundColor: "transparent",
+    minHeight: 32,
+    paddingVertical: spacing.xs,
+    borderColor: "transparent",
   },
   disabled: {
     opacity: 0.5,
@@ -57,9 +63,15 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: typography.size.md,
+    lineHeight: 24,
     fontWeight: typography.weight.semibold,
+    textAlign: "center",
   },
   primaryLabel: { color: colors.fg.onAccent },
   secondaryLabel: { color: colors.fg.primary },
-  ghostLabel: { color: colors.accent.roseDark },
+  ghostLabel: {
+    color: colors.fg.primary,
+    fontWeight: typography.weight.regular,
+    textDecorationLine: "underline",
+  },
 });

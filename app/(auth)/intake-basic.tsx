@@ -1,15 +1,14 @@
 import { useState } from "react";
-import { StyleSheet, TextInput, View, Alert } from "react-native";
+import { StyleSheet, Text, View, Alert } from "react-native";
 import { router } from "expo-router";
 import { Body } from "@/components/ui/Body";
 import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Heading } from "@/components/ui/Heading";
 import { Screen } from "@/components/ui/Screen";
+import { TextField } from "@/components/ui/TextField";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
 import { supabase } from "@/services/supabase";
-import { spacing, colors, radius } from "@/theme";
+import { spacing, typography } from "@/theme";
 import { PregnancyStage } from "@/types";
 
 export default function IntakeBasicScreen() {
@@ -56,28 +55,26 @@ export default function IntakeBasicScreen() {
   ];
 
   return (
-    <Screen>
-      <Heading level={2}>Welcome to Kairos</Heading>
-      <Body tone="muted">
-        Let's get to know you better so we can provide the best support.
-      </Body>
+    <Screen contentStyle={styles.screen}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Onboarding</Text>
+        <Body tone="muted" size="lg">
+          First, what’s your name?
+        </Body>
+      </View>
 
-      <Card style={styles.card}>
-        <Heading level={3}>Basic Information</Heading>
+      <View style={styles.form}>
+        <TextField
+          label="Full name"
+          required
+          placeholder="Enter your name"
+          value={fullName}
+          onChangeText={setFullName}
+          editable={!isSubmitting}
+        />
 
-        <View style={styles.inputGroup}>
-          <Body size="sm" style={styles.label}>Full Name</Body>
-          <TextInput
-            style={styles.input}
-            placeholder="Your name"
-            value={fullName}
-            onChangeText={setFullName}
-            placeholderTextColor={colors.fg.muted}
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Body size="sm" style={styles.label}>Where are you in your journey?</Body>
+        <View style={styles.stageGroup}>
+          <Body style={styles.label}>Where are you right now?</Body>
           <View style={styles.buttonGroup}>
             {stages.map((s) => (
               <Button
@@ -90,42 +87,48 @@ export default function IntakeBasicScreen() {
             ))}
           </View>
         </View>
-      </Card>
 
-      <Button
-        label={isSubmitting ? "Saving..." : "Continue"}
-        onPress={handleContinue}
-        disabled={isSubmitting || stage === "not_specified"}
-      />
+        <Button
+          label={isSubmitting ? "Saving..." : "Continue"}
+          onPress={handleContinue}
+          disabled={isSubmitting || stage === "not_specified"}
+        />
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    gap: spacing.lg,
+  screen: {
+    paddingHorizontal: 40,
+    paddingTop: 70,
+    gap: 32,
   },
-  inputGroup: {
+  header: {
     gap: spacing.xs,
   },
+  title: {
+    color: "white",
+    fontSize: 36,
+    lineHeight: 44,
+    fontFamily: typography.family.display,
+  },
+  form: {
+    gap: 37,
+  },
   label: {
-    fontWeight: "600",
-    color: colors.fg.secondary,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border.default,
-    borderRadius: radius.md,
-    padding: spacing.md,
+    color: "white",
     fontSize: 16,
-    color: colors.fg.primary,
-    backgroundColor: colors.bg.page,
+    lineHeight: 24,
+    fontWeight: "500",
   },
-  buttonGroup: {
+  stageGroup: {
     gap: spacing.sm,
   },
+  buttonGroup: {
+    gap: 11,
+  },
   stageButton: {
-    alignItems: "flex-start",
-    paddingHorizontal: spacing.md,
+    minHeight: 55,
   },
 });
