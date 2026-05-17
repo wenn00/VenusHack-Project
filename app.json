@@ -4,14 +4,8 @@
     "slug": "kairos",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "scheme": "kairos",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FFF7F5"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.venushack.kairos",
@@ -22,10 +16,6 @@
       }
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FFF7F5"
-      },
       "package": "com.venushack.kairos",
       "permissions": [
         "android.permission.CAMERA",
@@ -34,8 +24,7 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/favicon.png"
+      "output": "static"
     },
     "plugins": [
       "expo-router",
@@ -44,7 +33,8 @@
         {
           "cameraPermission": "Allow Kairos to access your camera to estimate heart rate."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
