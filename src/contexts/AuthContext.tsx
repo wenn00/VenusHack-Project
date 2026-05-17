@@ -21,6 +21,8 @@ interface AuthContextValue {
    *   Authentication -> Sign In / Providers -> Anonymous Sign-Ins -> Enable.
    */
   signInAnonymous: () => Promise<void>;
+  signInWithOtp: (email: string) => Promise<void>;
+  verifyOtp: (email: string, token: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -60,6 +62,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("[auth] calling supabase.auth.signInAnonymously()...");
         const { data, error } = await supabase.auth.signInAnonymously();
         console.log("[auth] result:", { data, error });
+        if (error) throw error;
+      },
+      signInWithOtp: async (email: string) => {
+        const { error } = await supabase.auth.signInWithOtp({ email });
+        if (error) throw error;
+      },
+      verifyOtp: async (email: string, token: string) => {
+        const { error } = await supabase.auth.verifyOtp({
+          email,
+          token,
+          type: "email",
+        });
         if (error) throw error;
       },
       signOut: async () => {
