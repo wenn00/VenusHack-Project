@@ -153,7 +153,7 @@ export default function ChatbotScreen() {
   const visible = messages.length === 0 ? [WELCOME_MESSAGE] : messages;
 
   return (
-    <SafeAreaView style={styles.safe} edges={["bottom"]}>
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <BlueBackground />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -228,7 +228,9 @@ const styles = StyleSheet.create({
   },
   flex: { flex: 1 },
   messagesContent: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
     gap: spacing.sm,
     flexGrow: 1,
   },
