@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, TextInput, View, ViewStyle } from "react-native";
 import { router } from "expo-router";
 import { Screen } from "@/components/ui/Screen";
 import { useAuth } from "@/contexts/AuthContext";
@@ -8,12 +8,12 @@ import { supabase } from "@/services/supabase";
 import { Mood } from "@/types";
 import { colors, radius, typography } from "@/theme";
 
-const moodOptions: { mood: Mood; color: string; shadow: string; style: object }[] = [
-  { mood: "great", color: "#FCDC84", shadow: "#D9A83C", style: { top: 82, left: 143 } },
-  { mood: "good", color: "#98D3F3", shadow: "#64A9D2", style: { top: 144, left: 68 } },
-  { mood: "okay", color: "#8D9AF7", shadow: "#6672D8", style: { top: 144, right: 48 } },
-  { mood: "low", color: "#FFC782", shadow: "#E69A4D", style: { top: 221, left: 109 } },
-  { mood: "bad", color: "#FFA09B", shadow: "#E37070", style: { top: 221, right: 70 } },
+const moodOptions: { mood: Mood; color: string; shadow: string; style: ViewStyle }[] = [
+  { mood: "great", color: "#FCDC84", shadow: "#D9A83C", style: { top: 0, left: 107 } },
+  { mood: "good", color: "#98D3F3", shadow: "#64A9D2", style: { top: 62, left: 31 } },
+  { mood: "okay", color: "#8D9AF7", shadow: "#6672D8", style: { top: 62, left: 183 } },
+  { mood: "low", color: "#FFC782", shadow: "#E69A4D", style: { top: 139, left: 76 } },
+  { mood: "bad", color: "#FFA09B", shadow: "#E37070", style: { top: 139, left: 157 } },
 ];
 
 export default function LogMoodScreen() {
@@ -92,7 +92,7 @@ export default function LogMoodScreen() {
       ) : (
         <View style={styles.selectContent}>
           <Text style={styles.title}>How do you feel{"\n"}today?</Text>
-          <View style={styles.moodField}>
+          <View style={styles.moodCluster}>
             {moodOptions.map((option) => (
               <MoodCircle
                 key={option.mood}
@@ -117,7 +117,7 @@ function MoodCircle({
 }: {
   color: string;
   shadowColor: string;
-  style: object;
+  style: ViewStyle;
   onPress: () => void;
 }) {
   return (
@@ -164,9 +164,12 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     fontWeight: "400",
   },
-  moodField: {
+  moodCluster: {
     position: "relative",
-    flex: 1,
+    alignSelf: "center",
+    width: 270,
+    height: 235,
+    marginTop: 50,
   },
   moodCircle: {
     position: "absolute",
