@@ -1,242 +1,211 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { StyleSheet, View, TouchableOpacity, ScrollView, Alert } from "react-native";
+/**
+ * Voice Journal.
+ *
+ * Native speech-recognition modules require a development build, which
+ * isn't worth setting up for a hackathon. Instead we lean on the iOS /
+ * Android keyboard's built-in dictation mic — the user taps the mic
+ * glyph on their keyboard and the OS transcribes for us, no extra deps.
+ *
+ * On Save we forward the transcript to Gemini for structured summary
+ * (symptoms, mood, key concerns, red flags, recommended next step) and
+ * persist both the raw transcript and the JSON summary to Supabase.
+ */
+
+import { useState } from "react";
+import { Alert, Keyboard, StyleSheet, TextInput, View } from "react-native";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from "expo-speech-recognition";
 import { Body } from "@/components/ui/Body";
+import { Button } from "@/components/ui/Button";
+import { Card } from "@/components/ui/Card";
 import { Heading } from "@/components/ui/Heading";
 import { Screen } from "@/components/ui/Screen";
-import { colors, spacing } from "@/theme";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserData } from "@/contexts/UserDataContext";
+import { summarizeVoiceJournal } from "@/services/gemini";
 import { supabase } from "@/services/supabase";
+import { colors, radius, spacing, typography } from "@/theme";
+import { VoiceJournalSummary } from "@/types";
 
-/**
- * Voice Journal Screen
- * Uses expo-speech-recognition for real-time transcription.
- * Saves results to Supabase `voice_journal_entries`.
- */
 export default function VoiceJournalScreen() {
   const { user } = useAuth();
-  const [isRecording, setIsRecording] = useState(false);
+  const { refresh } = useUserData();
+
   const [transcript, setTranscript] = useState("");
+  const [summary, setSummary] = useState<VoiceJournalSummary | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Handle Speech Recognition Events
-  useSpeechRecognitionEvent("start", () => setIsRecording(true));
-  useSpeechRecognitionEvent("stop", () => setIsRecording(false));
-  useSpeechRecognitionEvent("result", (event) => {
-    setTranscript(event.results[0]?.transcript ?? "");
-  });
-  useSpeechRecognitionEvent("error", (event) => {
-    console.error("Speech recognition error:", event.error, event.message);
-    setIsRecording(false);
-    Alert.alert("Error", "Speech recognition failed: " + event.message);
-  });
-
-  const startRecording = async () => {
-    const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-    if (!result.granted) {
-      Alert.alert("Permission denied", "We need microphone access to record your journal.");
+  async function handleSave() {
+    const trimmed = transcript.trim();
+    if (!trimmed) {
+      Alert.alert("Empty journal", "Type or dictate something first.");
+      return;
+    }
+    if (!user) {
+      Alert.alert("Not signed in", "Please sign in before saving.");
       return;
     }
 
-    setTranscript(""); // Clear previous transcript
-    ExpoSpeechRecognitionModule.start({
-      lang: "en-US",
-      interimResults: true,
-    });
-  };
-
-  const stopRecording = () => {
-    ExpoSpeechRecognitionModule.stop();
-  };
-
-  const handleToggleRecording = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
-
-  const handleCancel = () => {
-    if (isRecording) stopRecording();
-    setTranscript("");
-  };
-
-  const handleSave = async () => {
-    if (!transcript.trim()) {
-      Alert.alert("Empty Journal", "Please record some thoughts before saving.");
-      return;
-    }
-
+    Keyboard.dismiss();
     setIsSaving(true);
+
+    // Try AI summarization first. If Gemini is unavailable we still save
+    // the raw transcript so nothing is lost.
+    let aiSummary: VoiceJournalSummary | null = null;
+    try {
+      aiSummary = await summarizeVoiceJournal(trimmed);
+    } catch (err) {
+      console.warn("[voice-journal] Gemini summarize failed:", err);
+    }
+
     try {
       const { error } = await supabase.from("voice_journal_entries").insert({
-        user_id: user?.id,
-        raw_transcript: transcript,
+        user_id: user.id,
+        raw_transcript: trimmed,
+        ai_summary: aiSummary,
         recorded_at: new Date().toISOString(),
       });
-
       if (error) throw error;
 
-      Alert.alert("Success", "Journal saved!", [
-        { text: "OK", onPress: () => router.back() }
-      ]);
+      await refresh();
+
+      if (aiSummary) {
+        setSummary(aiSummary);
+      } else {
+        Alert.alert("Saved", "Couldn't generate an AI summary right now, but your entry is saved.", [
+          { text: "OK", onPress: () => router.back() },
+        ]);
+      }
     } catch (err) {
-      console.error("Save error:", err);
-      Alert.alert("Error", "Failed to save journal entry.");
+      Alert.alert("Could not save", (err as Error).message);
     } finally {
       setIsSaving(false);
     }
-  };
+  }
+
+  // ----- Summary screen ------------------------------------------------
+
+  if (summary) {
+    const hasRedFlag = summary.red_flag_symptoms.length > 0;
+    return (
+      <Screen>
+        <Heading level={2}>Saved & analyzed</Heading>
+        <Body tone="muted">Here's what Kairos picked out from what you said.</Body>
+
+        <Card>
+          <Heading level={3}>Mood</Heading>
+          <Body size="lg" style={styles.moodValue}>
+            {summary.mood}
+          </Body>
+        </Card>
+
+        {summary.symptoms.length > 0 && (
+          <Card>
+            <Heading level={3}>Symptoms mentioned</Heading>
+            {summary.symptoms.map((s, i) => (
+              <Body key={`sym-${i}`}>• {s}</Body>
+            ))}
+          </Card>
+        )}
+
+        {summary.key_concerns.length > 0 && (
+          <Card>
+            <Heading level={3}>Key concerns</Heading>
+            {summary.key_concerns.map((c, i) => (
+              <Body key={`kc-${i}`}>• {c}</Body>
+            ))}
+          </Card>
+        )}
+
+        {hasRedFlag && (
+          <Card style={{ backgroundColor: colors.status.redBg }}>
+            <Heading level={3}>⚠️ Worth flagging</Heading>
+            {summary.red_flag_symptoms.map((s, i) => (
+              <Body key={`rf-${i}`}>• {s}</Body>
+            ))}
+            <Body tone="muted" size="sm">
+              Consider contacting your provider about these.
+            </Body>
+          </Card>
+        )}
+
+        <Card>
+          <Heading level={3}>Recommended next step</Heading>
+          <Body>{summary.recommended_next_step}</Body>
+        </Card>
+
+        <Button label="Done" onPress={() => router.back()} />
+        <Button
+          label="New entry"
+          variant="ghost"
+          onPress={() => {
+            setSummary(null);
+            setTranscript("");
+          }}
+        />
+      </Screen>
+    );
+  }
+
+  // ----- Compose screen ------------------------------------------------
 
   return (
-    <Screen style={styles.container}>
-      <View style={styles.header}>
-        <Heading level={2}>Voice Journal</Heading>
-        {transcript.length > 0 && !isRecording && (
-          <TouchableOpacity onPress={handleSave} disabled={isSaving}>
-            <Body style={{ color: colors.accent.rose, fontWeight: "600" }}>
-              {isSaving ? "Saving..." : "Save"}
-            </Body>
-          </TouchableOpacity>
-        )}
+    <Screen>
+      <Heading level={2}>Voice journal</Heading>
+      <Body tone="muted">
+        Tell Kairos how you're feeling today — symptoms, mood, anything on your
+        mind. We'll pull out the important parts.
+      </Body>
+
+      <Card>
+        <TextInput
+          value={transcript}
+          onChangeText={setTranscript}
+          multiline
+          autoFocus
+          placeholder="I've had a headache since this morning and feel more tired than usual..."
+          placeholderTextColor={colors.fg.muted}
+          style={styles.input}
+          editable={!isSaving}
+          textAlignVertical="top"
+        />
+      </Card>
+
+      <View style={styles.hintRow}>
+        <Body tone="muted" size="sm" style={styles.hintText}>
+          💡 Tap the microphone on your keyboard to dictate hands-free — your
+          phone will transcribe automatically.
+        </Body>
       </View>
 
-      <View style={styles.content}>
-        {/* The Aura Effect */}
-        <View style={styles.auraContainer}>
-          <View style={[styles.aura, isRecording && styles.auraActive]} />
-        </View>
-
-        <ScrollView
-          style={styles.transcriptContainer}
-          contentContainerStyle={styles.transcriptContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Body size="lg" style={styles.transcriptText}>
-            {transcript || (isRecording ? "Listening..." : "Tap the mic to start speaking...")}
-          </Body>
-        </ScrollView>
-      </View>
-
-      {/* Bottom Controls */}
-      <View style={styles.controls}>
-        <TouchableOpacity
-          style={styles.sideButton}
-          onPress={() => router.back()}
-          accessibilityLabel="Return home"
-        >
-          <Ionicons name="arrow-undo-outline" size={28} color={colors.fg.secondary} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.micButton, isRecording && styles.micButtonActive]}
-          onPress={handleToggleRecording}
-          accessibilityLabel={isRecording ? "Stop recording" : "Start recording"}
-        >
-          <Ionicons
-            name={isRecording ? "stop" : "mic"}
-            size={36}
-            color={colors.bg.card}
-          />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.sideButton}
-          onPress={handleCancel}
-          accessibilityLabel="Cancel transcription"
-        >
-          <Ionicons name="close-outline" size={32} color={colors.fg.secondary} />
-        </TouchableOpacity>
-      </View>
+      <Button
+        label={isSaving ? "Saving & analyzing..." : "Save & analyze"}
+        onPress={handleSave}
+        disabled={isSaving || !transcript.trim()}
+      />
+      <Button
+        label="Cancel"
+        variant="ghost"
+        onPress={() => router.back()}
+        disabled={isSaving}
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: spacing.md,
-  },
-  content: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "relative",
-  },
-  auraContainer: {
-    position: "absolute",
-    zIndex: -1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  aura: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: colors.status.red,
-    opacity: 0,
-    // iOS shadow for the aura glow
-    shadowColor: colors.status.red,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 40,
-    // Android elevation (limited for glows, but helps)
-    elevation: 0,
-  },
-  auraActive: {
-    opacity: 0.15,
-    elevation: 20,
-    transform: [{ scale: 1.2 }],
-  },
-  transcriptContainer: {
-    flex: 1,
-    width: "100%",
-  },
-  transcriptContent: {
-    paddingVertical: spacing.xxl,
-    alignItems: "center",
-  },
-  transcriptText: {
-    textAlign: "center",
-    lineHeight: 32,
+  input: {
+    minHeight: 180,
+    fontSize: typography.size.md,
     color: colors.fg.primary,
+    padding: spacing.sm,
   },
-  controls: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingBottom: spacing.xl,
-    paddingTop: spacing.md,
+  hintRow: {
+    paddingHorizontal: spacing.sm,
   },
-  micButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.accent.rose,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 8,
+  hintText: {
+    lineHeight: 20,
   },
-  micButtonActive: {
-    backgroundColor: colors.status.red,
-  },
-  sideButton: {
-    width: 50,
-    height: 50,
-    justifyContent: "center",
-    alignItems: "center",
+  moodValue: {
+    textTransform: "capitalize",
   },
 });
