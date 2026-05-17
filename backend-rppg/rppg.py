@@ -58,7 +58,7 @@ def process_video(path: str) -> dict[str, object]:
     rppg_filtered = _bandpass(rppg_signal, low=0.7, high=4.0, fs=fps)
 
     bpm, snr = _estimate_bpm(rppg_filtered, fps)
-    hrv_ms = _estimate_hrv_ms(rppg_filtered, fps)
+    hrv_ms = _estimate_hrv_ms(rppg_filtered, fps, bpm)
     confidence = float(min(snr / 10.0, 1.0))
 
     return {
@@ -160,9 +160,37 @@ def _estimate_bpm(signal: np.ndarray, fs: float) -> Tuple[float, float]:
     return bpm, snr
 
 
-def _estimate_hrv_ms(signal: np.ndarray, fs: float) -> float:
-    peaks, _ = find_peaks(signal, distance=int(fs * 0.5))
-    if len(peaks) < 3:
+def _estimate_hrv_ms(signal: np.ndarray, fs: float, bpm: float) -> float:
+    """Estimate HRV (RMSSD-like) from peak-to-peak intervals.
+
+    Filters out implausible intervals using the detected BPM as a sanity
+    check, then computes the root-mean-square of successive differences.
+    Returns 0 when signal quality is too low to estimate reliably.
+    """
+    if bpm <= 0:
         return 0.0
+
+    # Expected R-R interval in milliseconds, with a generous tolerance window
+    # to keep beats while rejecting spurious peaks.
+    expected_ms = 60_000.0 / bpm
+    lo, hi = expected_ms * 0.7, expected_ms * 1.4
+
+    # Minimum spacing for find_peaks: a bit tighter than the expected period
+    # so we don't double-count one beat as two.
+    min_distance = max(int(fs * expected_ms / 1000.0 * 0.6), 1)
+    peaks, _ = find_peaks(signal, distance=min_distance)
+    if len(peaks) < 4:
+        return 0.0
+
     intervals_ms = np.diff(peaks) / fs * 1000.0
-    return float(np.std(intervals_ms))
+    plausible = intervals_ms[(intervals_ms >= lo) & (intervals_ms <= hi)]
+    if len(plausible) < 3:
+        return 0.0
+
+    # RMSSD — the most commonly reported short-term HRV metric.
+    diffs = np.diff(plausible)
+    rmssd = float(np.sqrt(np.mean(diffs ** 2)))
+
+    # Cap at a physiologically sensible ceiling so a noisy reading
+    # cannot produce values like 197 ms.
+    return float(np.clip(rmssd, 0.0, 120.0))
