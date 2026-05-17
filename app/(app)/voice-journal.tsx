@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import { StyleSheet, View, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -11,9 +11,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/services/supabase";
 
 /**
- * Voice Journal Screen
- * Uses expo-speech-recognition for real-time transcription.
- * Saves results to Supabase `voice_journal_entries`.
+ * Voice Journal — Real-time Speech-to-Text.
+ *
+ * Features:
+ * - Real-time transcription using native/web speech API.
+ * - Reddish aura effect when recording.
+ * - Saves to `voice_journal_entries` in Supabase.
  */
 export default function VoiceJournalScreen() {
   const { user } = useAuth();
@@ -21,52 +24,57 @@ export default function VoiceJournalScreen() {
   const [transcript, setTranscript] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Handle Speech Recognition Events
+  // --- Speech Recognition Setup ---
   useSpeechRecognitionEvent("start", () => setIsRecording(true));
   useSpeechRecognitionEvent("stop", () => setIsRecording(false));
   useSpeechRecognitionEvent("result", (event) => {
-    setTranscript(event.results[0]?.transcript ?? "");
+    // Some engines return segments, we join them to show the full text
+    const text = event.results
+      .map((r) => r.transcript)
+      .join(" ")
+      .trim();
+    if (text) {
+      setTranscript(text);
+    }
   });
   useSpeechRecognitionEvent("error", (event) => {
     console.error("Speech recognition error:", event.error, event.message);
     setIsRecording(false);
-    Alert.alert("Error", "Speech recognition failed: " + event.message);
+    // Only alert on critical errors, ignore "no-speech" if they just clicked stop
+    if (event.error !== "no-speech") {
+      Alert.alert("Microphone Error", event.message);
+    }
   });
 
-  const startRecording = async () => {
-    const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
-    if (!result.granted) {
-      Alert.alert("Permission denied", "We need microphone access to record your journal.");
-      return;
+  const handleToggleRecording = async () => {
+    try {
+      if (isRecording) {
+        setIsRecording(false);
+        await ExpoSpeechRecognitionModule.stop();
+      } else {
+        const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+        if (!result.granted) {
+          Alert.alert("Permission required", "Please enable microphone access to use the voice journal.");
+          return;
+        }
+
+        setTranscript("");
+        setIsRecording(true);
+        await ExpoSpeechRecognitionModule.start({
+          lang: "en-US",
+          interimResults: true,
+          continuous: true,
+        });
+      }
+    } catch (err) {
+      console.error("Speech toggle error:", err);
+      setIsRecording(false);
     }
-
-    setTranscript(""); // Clear previous transcript
-    ExpoSpeechRecognitionModule.start({
-      lang: "en-US",
-      interimResults: true,
-    });
-  };
-
-  const stopRecording = () => {
-    ExpoSpeechRecognitionModule.stop();
-  };
-
-  const handleToggleRecording = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
-
-  const handleCancel = () => {
-    if (isRecording) stopRecording();
-    setTranscript("");
   };
 
   const handleSave = async () => {
     if (!transcript.trim()) {
-      Alert.alert("Empty Journal", "Please record some thoughts before saving.");
+      Alert.alert("Nothing to save", "Speak something first!");
       return;
     }
 
@@ -80,12 +88,12 @@ export default function VoiceJournalScreen() {
 
       if (error) throw error;
 
-      Alert.alert("Success", "Journal saved!", [
-        { text: "OK", onPress: () => router.back() }
+      Alert.alert("Journal Saved", "Your entry has been recorded.", [
+        { text: "OK", onPress: () => router.replace("/(app)/dashboard") }
       ]);
     } catch (err) {
       console.error("Save error:", err);
-      Alert.alert("Error", "Failed to save journal entry.");
+      Alert.alert("Error", "Could not save to database. Check your connection.");
     } finally {
       setIsSaving(false);
     }
@@ -94,18 +102,15 @@ export default function VoiceJournalScreen() {
   return (
     <Screen style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.replace("/(app)/dashboard")} style={styles.homeButton}>
+          <Ionicons name="home-outline" size={28} color={colors.fg.primary} />
+        </TouchableOpacity>
         <Heading level={2}>Voice Journal</Heading>
-        {transcript.length > 0 && !isRecording && (
-          <TouchableOpacity onPress={handleSave} disabled={isSaving}>
-            <Body style={{ color: colors.accent.rose, fontWeight: "600" }}>
-              {isSaving ? "Saving..." : "Save"}
-            </Body>
-          </TouchableOpacity>
-        )}
+        <View style={{ width: 28 }} /> {/* Spacer to center title */}
       </View>
 
       <View style={styles.content}>
-        {/* The Aura Effect */}
+        {/* Central Reddish Aura */}
         <View style={styles.auraContainer}>
           <View style={[styles.aura, isRecording && styles.auraActive]} />
         </View>
@@ -113,42 +118,33 @@ export default function VoiceJournalScreen() {
         <ScrollView
           style={styles.transcriptContainer}
           contentContainerStyle={styles.transcriptContent}
-          showsVerticalScrollIndicator={false}
         >
           <Body size="lg" style={styles.transcriptText}>
-            {transcript || (isRecording ? "Listening..." : "Tap the mic to start speaking...")}
+            {transcript || (isRecording ? "Listening..." : "Tap the mic and start talking.")}
           </Body>
         </ScrollView>
       </View>
 
-      {/* Bottom Controls */}
-      <View style={styles.controls}>
-        <TouchableOpacity
-          style={styles.sideButton}
-          onPress={() => router.back()}
-          accessibilityLabel="Return home"
-        >
-          <Ionicons name="arrow-undo-outline" size={28} color={colors.fg.secondary} />
-        </TouchableOpacity>
+      <View style={styles.footer}>
+        {transcript.trim().length > 0 && !isRecording && (
+          <TouchableOpacity
+            style={[styles.saveButton, isSaving && { opacity: 0.7 }]}
+            onPress={handleSave}
+            disabled={isSaving}
+          >
+            <Body style={styles.saveButtonText}>{isSaving ? "Saving..." : "Save Entry"}</Body>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={[styles.micButton, isRecording && styles.micButtonActive]}
           onPress={handleToggleRecording}
-          accessibilityLabel={isRecording ? "Stop recording" : "Start recording"}
         >
           <Ionicons
             name={isRecording ? "stop" : "mic"}
-            size={36}
+            size={40}
             color={colors.bg.card}
           />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.sideButton}
-          onPress={handleCancel}
-          accessibilityLabel="Cancel transcription"
-        >
-          <Ionicons name="close-outline" size={32} color={colors.fg.secondary} />
         </TouchableOpacity>
       </View>
     </Screen>
@@ -164,42 +160,43 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  homeButton: {
+    padding: spacing.xs,
   },
   content: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
     position: "relative",
+    justifyContent: "center",
   },
   auraContainer: {
     position: "absolute",
-    zIndex: -1,
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     justifyContent: "center",
     alignItems: "center",
+    zIndex: -1,
   },
   aura: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
     backgroundColor: colors.status.red,
     opacity: 0,
-    // iOS shadow for the aura glow
-    shadowColor: colors.status.red,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 40,
-    // Android elevation (limited for glows, but helps)
-    elevation: 0,
   },
   auraActive: {
-    opacity: 0.15,
-    elevation: 20,
-    transform: [{ scale: 1.2 }],
+    opacity: 0.1,
+    shadowColor: colors.status.red,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 60,
+    elevation: 20, // Android shadow
   },
   transcriptContainer: {
     flex: 1,
-    width: "100%",
   },
   transcriptContent: {
     paddingVertical: spacing.xxl,
@@ -207,36 +204,41 @@ const styles = StyleSheet.create({
   },
   transcriptText: {
     textAlign: "center",
-    lineHeight: 32,
+    lineHeight: 34,
     color: colors.fg.primary,
   },
-  controls: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  footer: {
+    paddingVertical: spacing.xl,
     alignItems: "center",
-    paddingBottom: spacing.xl,
-    paddingTop: spacing.md,
+    gap: spacing.lg,
   },
   micButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     backgroundColor: colors.accent.rose,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 8,
+    shadowRadius: 8,
+    elevation: 6,
   },
   micButtonActive: {
     backgroundColor: colors.status.red,
+    transform: [{ scale: 1.1 }],
   },
-  sideButton: {
-    width: 50,
-    height: 50,
-    justifyContent: "center",
-    alignItems: "center",
+  saveButton: {
+    backgroundColor: colors.bg.muted,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    borderRadius: 100,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+  },
+  saveButtonText: {
+    fontWeight: "600",
+    color: colors.accent.rose,
   },
 });
