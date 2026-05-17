@@ -9,14 +9,16 @@ import { useAuth } from "@/contexts/AuthContext";
 import { spacing, typography } from "@/theme";
 
 export default function LoginScreen() {
-  const { signInWithOtp, verifyOtp, signInAnonymous } = useAuth();
+  const { signInWithOtp, verifyOtp, signInAnonymous, signOut } = useAuth();
   const [isBusy, setIsBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"email" | "otp">("email");
 
   async function handleSendOtp() {
-    if (!email.trim()) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
       Alert.alert("Error", "Please enter your email.");
       return;
     }
@@ -27,18 +29,18 @@ export default function LoginScreen() {
       // out, so RLS hides every row and the lookup always comes back
       // empty. Let Supabase auth decide instead — shouldCreateUser:false
       // rejects emails that have never signed up.
-      await signInWithOtp(email.toLowerCase(), false);
+      await signOut();
+      await signInWithOtp(normalizedEmail, false);
       setStep("otp");
       Alert.alert("Code Sent", "Please check your email for the verification code.");
     } catch (err) {
       console.error("[login] error:", err);
       const message = (err as Error).message ?? "";
       if (/signup|not allowed|otp_disabled|not found/i.test(message)) {
-        Alert.alert(
-          "User Not Found",
-          "No account found with this email. Please sign up first.",
-          [{ text: "Go to Sign Up", onPress: () => router.push("/(auth)/signup") }]
-        );
+        router.replace({
+          pathname: "/(auth)/signup",
+          params: { email: normalizedEmail },
+        });
       } else {
         Alert.alert("Login Failed", message);
       }
@@ -86,7 +88,7 @@ export default function LoginScreen() {
         <Text style={styles.brand}>Kairos</Text>
         <Body tone="muted" size="lg">
           {step === "email"
-            ? "Welcome back! Log into an existing account here."
+            ? "Enter your email to continue."
             : `Enter the code sent to ${email}`}
         </Body>
       </View>
@@ -104,7 +106,7 @@ export default function LoginScreen() {
             editable={!isBusy}
           />
           <Button
-            label={isBusy ? "Sending..." : "Sign In"}
+            label={isBusy ? "Checking..." : "Continue"}
             onPress={handleSendOtp}
             disabled={isBusy}
           />

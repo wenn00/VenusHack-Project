@@ -26,7 +26,11 @@ interface AuthContextValue {
    * makes Supabase reject emails that have never signed up; the default
    * true (used by signup) registers the email on verification.
    */
-  signInWithOtp: (email: string, shouldCreateUser?: boolean) => Promise<void>;
+  signInWithOtp: (
+    email: string,
+    shouldCreateUser?: boolean,
+    data?: Record<string, unknown>,
+  ) => Promise<void>;
   verifyOtp: (email: string, token: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -69,10 +73,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("[auth] result:", { data, error });
         if (error) throw error;
       },
-      signInWithOtp: async (email: string, shouldCreateUser = true) => {
+      signInWithOtp: async (
+        email: string,
+        shouldCreateUser = true,
+        data?: Record<string, unknown>,
+      ) => {
         const { error } = await supabase.auth.signInWithOtp({
           email,
-          options: { shouldCreateUser },
+          options: { shouldCreateUser, data },
         });
         if (error) throw error;
       },

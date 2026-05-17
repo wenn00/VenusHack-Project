@@ -21,17 +21,21 @@ function RootGate() {
     isLoading: isUserDataLoading,
   } = useUserData();
   const segments = useSegments();
+  const routeSegments = segments as readonly string[];
   const router = useRouter();
 
   useEffect(() => {
     if (isAuthLoading) return;
 
-    const firstSegment = segments[0];
-    const screenName = segments[segments.length - 1];
+    const firstSegment = routeSegments[0];
+    const screenName = routeSegments[routeSegments.length - 1];
     const inAuthGroup = firstSegment === "(auth)";
     const inAppGroup = firstSegment === "(app)";
     const isAuthEntryPage = screenName === "login" || screenName === "signup";
     const isIntakePage = screenName?.startsWith("intake-");
+    const isSplashPage = routeSegments.length === 0 || screenName === "index";
+
+    if (isSplashPage) return;
 
     if (!session) {
       if (!inAuthGroup || isIntakePage) {
@@ -70,7 +74,7 @@ function RootGate() {
     session,
     isAuthLoading,
     isUserDataLoading,
-    segments,
+    routeSegments,
     router,
     profile,
     pregnancyHistory,

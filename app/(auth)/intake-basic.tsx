@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, View, Alert } from "react-native";
 import { router } from "expo-router";
 import { Body } from "@/components/ui/Body";
@@ -13,13 +13,25 @@ import { PregnancyStage } from "@/types";
 
 export default function IntakeBasicScreen() {
   const { user } = useAuth();
-  const { refresh } = useUserData();
-  const [fullName, setFullName] = useState("");
+  const { profile, refresh } = useUserData();
+  const [fullName, setFullName] = useState(profile?.fullName ?? "");
   const [stage, setStage] = useState<PregnancyStage>("not_specified");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const hasProfileName = Boolean(profile?.fullName);
+
+  useEffect(() => {
+    if (profile?.fullName) setFullName(profile.fullName);
+  }, [profile?.fullName]);
 
   async function handleContinue() {
     if (!user) return;
+    const nextFullName = (fullName.trim() || profile?.fullName || "").trim();
+
+    if (!nextFullName) {
+      Alert.alert("Name required", "Please enter your name.");
+      return;
+    }
+
     if (stage === "not_specified") {
       Alert.alert("Selection required", "Please select your current stage.");
       return;
@@ -31,7 +43,7 @@ export default function IntakeBasicScreen() {
         .from("profiles")
         .upsert({
           id: user.id,
-          full_name: fullName,
+          full_name: nextFullName,
           stage: stage,
           updated_at: new Date().toISOString(),
         });
@@ -59,19 +71,21 @@ export default function IntakeBasicScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Onboarding</Text>
         <Body tone="muted" size="lg">
-          First, what’s your name?
+          Pregnancy is like being on the treadmill for 9 months, so where are you right now?
         </Body>
       </View>
 
       <View style={styles.form}>
-        <TextField
-          label="Full name"
-          required
-          placeholder="Enter your name"
-          value={fullName}
-          onChangeText={setFullName}
-          editable={!isSubmitting}
-        />
+        {!hasProfileName && (
+          <TextField
+            label="Full name"
+            required
+            placeholder="Enter your name"
+            value={fullName}
+            onChangeText={setFullName}
+            editable={!isSubmitting}
+          />
+        )}
 
         <View style={styles.stageGroup}>
           <Body style={styles.label}>Where are you right now?</Body>
