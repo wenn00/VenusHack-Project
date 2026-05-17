@@ -125,15 +125,17 @@ function getDayGreeting(): string {
 }
 
 const webBackdropBlurStyle = {
-  backdropFilter: "blur(18px)",
-  WebkitBackdropFilter: "blur(18px)",
+  backdropFilter: "blur(10px)",
+  WebkitBackdropFilter: "blur(10px)",
+  maskImage: "linear-gradient(to bottom, black 0%, black 54%, transparent 100%)",
+  WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 54%, transparent 100%)",
 } as ViewStyle;
 
 const styles = StyleSheet.create({
   screen: {
     minHeight: 812,
     paddingHorizontal: 30,
-    paddingTop: 128,
+    paddingTop: 98,
     paddingBottom: 96,
   },
   logoHeader: {
@@ -141,13 +143,11 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 116,
+    height: 82,
     zIndex: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(23, 80, 172, 0.36)",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(23, 80, 172, 0.18)",
   },
   brand: {
     alignSelf: "center",
