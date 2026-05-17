@@ -11,7 +11,7 @@ import { supabase } from "@/services/supabase";
 import { colors, radius, spacing } from "@/theme";
 
 export default function LoginScreen() {
-  const { signInWithOtp, verifyOtp } = useAuth();
+  const { signInWithOtp, verifyOtp, signInAnonymous } = useAuth();
   const [isBusy, setIsBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -69,6 +69,19 @@ export default function LoginScreen() {
     } catch (err) {
       console.error("[verify] error:", err);
       Alert.alert("Verification Failed", "Invalid or expired code.");
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function handleDevSkip() {
+    setIsBusy(true);
+    try {
+      await signInAnonymous();
+      router.replace("/(app)/dashboard");
+    } catch (err) {
+      console.error("[login] dev skip error:", err);
+      Alert.alert("Anonymous sign-in failed", (err as Error).message);
     } finally {
       setIsBusy(false);
     }
@@ -138,6 +151,12 @@ export default function LoginScreen() {
         label="Don't have an account? Sign Up"
         variant="ghost"
         onPress={() => router.push("/(auth)/signup")}
+        disabled={isBusy}
+      />
+      <Button
+        label="Skip for now (dev)"
+        variant="ghost"
+        onPress={handleDevSkip}
         disabled={isBusy}
       />
     </Screen>
