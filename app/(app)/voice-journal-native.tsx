@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { StyleSheet, View, TouchableOpacity, ScrollView, Alert } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -50,7 +50,7 @@ export default function VoiceJournalScreen() {
     try {
       if (isRecording) {
         setIsRecording(false);
-        await ExpoSpeechRecognitionModule.stop();
+        ExpoSpeechRecognitionModule.stop();
       } else {
         const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
         if (!result.granted) {
@@ -60,7 +60,7 @@ export default function VoiceJournalScreen() {
 
         setTranscript("");
         setIsRecording(true);
-        await ExpoSpeechRecognitionModule.start({
+        ExpoSpeechRecognitionModule.start({
           lang: "en-US",
           interimResults: true,
           continuous: true,
