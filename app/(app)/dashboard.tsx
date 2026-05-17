@@ -135,15 +135,15 @@ const styles = StyleSheet.create({
   screen: {
     minHeight: 812,
     paddingHorizontal: 30,
-    paddingTop: 120,
+    paddingTop: 150,
     paddingBottom: 96,
   },
   logoHeader: {
     position: "absolute",
-    top: 12,
+    top: 28,
     left: 0,
     right: 0,
-    height: 76,
+    height: 72,
     zIndex: 12,
     elevation: 12,
     alignItems: "center",

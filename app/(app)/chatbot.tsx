@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   messagesContent: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.xxxl,
     paddingBottom: spacing.lg,
     gap: spacing.sm,
     flexGrow: 1,
