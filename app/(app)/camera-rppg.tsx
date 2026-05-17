@@ -3,7 +3,8 @@
  *
  * Flow:
  *   1. Ask for camera permission if we don't have it.
- *   2. Ping the rPPG backend in the background to warm up Render's free tier.
+ *   2. Ping the rPPG backend on mount and gate the Start button until it
+ *      responds. Render's free tier can take ~50 seconds to spin up.
  *   3. User taps "Start" → CameraView records 20 seconds of front-facing video.
  *   4. Video file is uploaded to the FastAPI service.
  *   5. The backend returns { bpm, hrv_ms, confidence }.
@@ -41,6 +42,7 @@ import { RppgError, RppgResult, VitalsLog } from "@/types";
 import { colors, radius, spacing } from "@/theme";
 
 type Stage = "idle" | "recording" | "analyzing" | "result" | "error";
+type ServerState = "warming" | "ready" | "unreachable";
 
 const RECORD_SECONDS = 20;
 
@@ -54,18 +56,31 @@ export default function CameraRppgScreen() {
   const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
 
   const [stage, setStage] = useState<Stage>("idle");
+  const [serverState, setServerState] = useState<ServerState>("warming");
   const [secondsLeft, setSecondsLeft] = useState(RECORD_SECONDS);
   const [result, setResult] = useState<RppgResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Warm-up ping so Render's free-tier dyno isn't cold when we send the video.
+  // Wake up Render's free-tier dyno BEFORE the user records.
+  // The first ping after sleep can take up to ~50 seconds.
   useEffect(() => {
-    pingRppg().catch(() => {
-      // Best-effort; ignore failure here.
-    });
+    let cancelled = false;
+    setServerState("warming");
+    pingRppg()
+      .then((ok) => {
+        if (cancelled) return;
+        setServerState(ok ? "ready" : "unreachable");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setServerState("unreachable");
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // If the user navigates away mid-recording, try to stop gracefully.
+  // If the user navigates away mid-recording, stop the recording gracefully.
   useFocusEffect(
     useCallback(() => {
       return () => {
@@ -252,7 +267,9 @@ export default function CameraRppgScreen() {
           <Body>{errorMessage ?? "Couldn't complete the measurement."}</Body>
         </Card>
         <Body tone="muted" size="sm">
-          The analysis server may be warming up. Try again in 30 seconds.
+          {serverState === "unreachable"
+            ? "The analysis server isn't reachable. Check your internet, then try again."
+            : "Try again — the analysis server should be warm now."}
         </Body>
         <Button
           label="Try again"
@@ -266,10 +283,18 @@ export default function CameraRppgScreen() {
     );
   }
 
+  const startDisabled = stage !== "idle" || serverState !== "ready";
+
   return (
     <Screen scroll={false} contentStyle={styles.cameraContainer}>
       <View style={styles.cameraFrame}>
-        <CameraView ref={cameraRef} facing="front" mode="video" style={StyleSheet.absoluteFill} />
+        <CameraView
+          ref={cameraRef}
+          facing="front"
+          mode="video"
+          videoQuality="720p"
+          style={StyleSheet.absoluteFill}
+        />
         <View pointerEvents="none" style={styles.faceGuide} />
         {stage === "recording" && (
           <View pointerEvents="none" style={styles.countdownBadge}>
@@ -282,6 +307,9 @@ export default function CameraRppgScreen() {
           <View pointerEvents="none" style={styles.analyzingOverlay}>
             <ActivityIndicator size="large" color={colors.accent.rose} />
             <Body style={styles.analyzingText}>Analyzing...</Body>
+            <Body style={styles.analyzingHint} size="sm">
+              First measurement of the day can take 30-60 seconds.
+            </Body>
           </View>
         )}
       </View>
@@ -298,7 +326,43 @@ export default function CameraRppgScreen() {
               Best in bright, even light — daylight near a window works well.
             </Body>
           </Card>
-          <Button label="Start measurement" onPress={handleStart} />
+
+          <View style={styles.serverBadge}>
+            <View
+              style={[
+                styles.serverDot,
+                serverState === "ready" && styles.serverDotReady,
+                serverState === "warming" && styles.serverDotWarming,
+                serverState === "unreachable" && styles.serverDotError,
+              ]}
+            />
+            <Body size="sm" tone="muted">
+              {serverState === "warming"
+                ? "Waking up analysis server (up to 1 minute)..."
+                : serverState === "ready"
+                  ? "Analysis server ready."
+                  : "Analysis server unreachable — check connection."}
+            </Body>
+          </View>
+
+          <Button
+            label={
+              serverState === "warming"
+                ? "Waking up server..."
+                : serverState === "unreachable"
+                  ? "Retry connection"
+                  : "Start measurement"
+            }
+            onPress={() => {
+              if (serverState === "unreachable") {
+                setServerState("warming");
+                pingRppg().then((ok) => setServerState(ok ? "ready" : "unreachable"));
+              } else {
+                handleStart();
+              }
+            }}
+            disabled={startDisabled}
+          />
           <Button label="Cancel" variant="ghost" onPress={() => router.back()} />
         </View>
       )}
@@ -364,9 +428,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.md,
+    paddingHorizontal: spacing.xl,
   },
   analyzingText: {
     color: "#fff",
+  },
+  analyzingHint: {
+    color: "rgba(255,255,255,0.8)",
+    textAlign: "center",
   },
   controls: {
     padding: spacing.lg,
@@ -387,4 +456,18 @@ const styles = StyleSheet.create({
   stat: {
     minWidth: 100,
   },
+  serverBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  serverDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.fg.muted,
+  },
+  serverDotReady: { backgroundColor: colors.status.green },
+  serverDotWarming: { backgroundColor: colors.status.yellow },
+  serverDotError: { backgroundColor: colors.status.red },
 });
