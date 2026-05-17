@@ -78,23 +78,45 @@ shortness of breath, decreased fetal movement, severe abdominal pain.
 Transcript:
 {transcript}`;
 
-export const DOCTOR_SUMMARY_PROMPT = `You will receive a pregnant woman's health log from the past 30 days. Generate a clinical summary in the style a clinician would appreciate. Focus on:
-1. BP trends and concerning readings
-2. Symptom patterns
-3. Mood patterns relevant to perinatal mental health
-4. rPPG readings (note these are estimates, not clinical-grade)
-5. Risk factors from pregnancy and family history
+export const DOCTOR_SUMMARY_PROMPT = `You are writing a ONE-PAGE clinical pre-visit summary for an OB / midwife.
+The clinician will scan it in 30 seconds. Density matters more than completeness.
 
-Then generate:
-- 3-5 specific questions she should ask her doctor
-- Any urgent concerns (red flag patterns)
+STYLE — strict:
+- HARD LIMIT: 18 words per bullet. Aim for 8-15.
+- One sentence per bullet. No semicolons chaining clauses.
+- Telegraphic clinical shorthand: drop articles, use abbreviations (BP, HR, GA, OB, sx, pt).
+- Use compressed dates: "5/17 09:12" not "2026-05-17 at 09:12 AM".
+- Don't repeat context across bullets. If you said "on 5/17" once, drop it from sibling bullets.
+- Skip filler entirely: no "As we can see", "Of note", "It is important to", "This is concerning because", "warrants", "suggests".
+- Don't restate the raw BP / mood tables; interpret patterns and outliers only.
+- rPPG values are estimates — say "rPPG" when citing them.
 
-Return ONLY valid JSON in this exact shape:
+LENGTH CAPS (must fit on ONE printed page — fewer is fine, more is not):
+- patient_context:  max 2 bullets
+- vitals_summary:   max 2 bullets
+- symptom_summary:  max 4 bullets, one per distinct symptom
+- mood_summary:     max 1 bullet
+- risk_factors:     max 2 bullets
+- questions_to_ask: 3-4 bullets
+- urgent_concerns:  max 2 bullets, or [] if no red-flag pattern
+
+QUESTIONS_TO_ASK perspective — IMPORTANT:
+These are questions the PATIENT asks her PROVIDER. First person from the patient's POV.
+Examples of correct phrasing:
+- "Could this headache + swelling be early preeclampsia? What tests can we run today?"
+- "How often should I measure BP at home, and what numbers should trigger a call?"
+- "Are my dizziness episodes safe to monitor, or do I need a neuro eval?"
+Wrong (do NOT do this):
+- "Can you clarify your symptoms?" — that's the doctor asking the patient.
+
+If a section has no signal, return [].
+
+Return ONLY valid JSON in exactly this shape:
 {
-  "patient_context": string,
-  "vitals_summary": string,
-  "symptom_summary": string,
-  "mood_summary": string,
+  "patient_context": [string],
+  "vitals_summary": [string],
+  "symptom_summary": [string],
+  "mood_summary": [string],
   "risk_factors": [string],
   "questions_to_ask": [string],
   "urgent_concerns": [string]
