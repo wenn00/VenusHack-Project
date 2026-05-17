@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
   },
   selectedDay: {
     backgroundColor: colors.accent.rose,
-    borderRadius: radius.full,
+    borderRadius: radius.pill,
   },
   dayText: {
     fontSize: 16,
