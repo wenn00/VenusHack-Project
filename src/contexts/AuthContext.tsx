@@ -21,7 +21,12 @@ interface AuthContextValue {
    *   Authentication -> Sign In / Providers -> Anonymous Sign-Ins -> Enable.
    */
   signInAnonymous: () => Promise<void>;
-  signInWithOtp: (email: string) => Promise<void>;
+  /**
+   * Sends an email OTP. shouldCreateUser:false (used by the login screen)
+   * makes Supabase reject emails that have never signed up; the default
+   * true (used by signup) registers the email on verification.
+   */
+  signInWithOtp: (email: string, shouldCreateUser?: boolean) => Promise<void>;
   verifyOtp: (email: string, token: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -64,8 +69,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("[auth] result:", { data, error });
         if (error) throw error;
       },
-      signInWithOtp: async (email: string) => {
-        const { error } = await supabase.auth.signInWithOtp({ email });
+      signInWithOtp: async (email: string, shouldCreateUser = true) => {
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: { shouldCreateUser },
+        });
         if (error) throw error;
       },
       verifyOtp: async (email: string, token: string) => {

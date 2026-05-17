@@ -7,7 +7,6 @@ import { Card } from "@/components/ui/Card";
 import { Heading } from "@/components/ui/Heading";
 import { Screen } from "@/components/ui/Screen";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/services/supabase";
 import { colors, radius, spacing } from "@/theme";
 
 export default function LoginScreen() {
@@ -25,30 +24,25 @@ export default function LoginScreen() {
 
     setIsBusy(true);
     try {
-      // Check if user exists in our profiles table
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", email.toLowerCase())
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (!data) {
-        Alert.alert(
-          "User Not Found",
-          "No account found with this email. Redirecting to sign up...",
-          [{ text: "OK", onPress: () => router.push("/(auth)/signup") }]
-        );
-        return;
-      }
-
-      await signInWithOtp(email.toLowerCase());
+      // We can't pre-check the profiles table here: the user is signed
+      // out, so RLS hides every row and the lookup always comes back
+      // empty. Let Supabase auth decide instead — shouldCreateUser:false
+      // rejects emails that have never signed up.
+      await signInWithOtp(email.toLowerCase(), false);
       setStep("otp");
       Alert.alert("Code Sent", "Please check your email for the verification code.");
     } catch (err) {
       console.error("[login] error:", err);
-      Alert.alert("Login Failed", (err as Error).message);
+      const message = (err as Error).message ?? "";
+      if (/signup|not allowed|otp_disabled|not found/i.test(message)) {
+        Alert.alert(
+          "User Not Found",
+          "No account found with this email. Please sign up first.",
+          [{ text: "Go to Sign Up", onPress: () => router.push("/(auth)/signup") }]
+        );
+      } else {
+        Alert.alert("Login Failed", message);
+      }
     } finally {
       setIsBusy(false);
     }
