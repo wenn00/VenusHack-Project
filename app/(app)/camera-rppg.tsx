@@ -231,12 +231,6 @@ export default function CameraRppgScreen() {
           <View style={styles.statRow}>
             <View style={styles.stat}>
               <Body tone="muted" size="sm">
-                HRV
-              </Body>
-              <Heading level={3}>{result.hrvMs} ms</Heading>
-            </View>
-            <View style={styles.stat}>
-              <Body tone="muted" size="sm">
                 Confidence
               </Body>
               <Heading level={3}>{Math.round(result.confidence * 100)}%</Heading>
@@ -244,7 +238,7 @@ export default function CameraRppgScreen() {
           </View>
         </Card>
         <Body tone="muted" size="sm">
-          Estimated values. For reference only — not a clinical device.
+          Estimated values from rPPG. For reference only — not a clinical device.
         </Body>
         <Button label="Save" onPress={handleSave} />
         <Button
