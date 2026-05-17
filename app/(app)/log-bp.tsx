@@ -1,8 +1,13 @@
 /**
  * Manual blood pressure entry.
  *
- * Flow: validate → save row → run KPIN evaluation → if red, navigate
- * to /alert/red-flag (handled by useKpin), otherwise pop back.
+ * Flow:
+ *   1. Validate inputs.
+ *   2. Insert into Supabase `bp_readings` (RLS scopes to current user).
+ *   3. Run a KPIN evaluation on the new reading.
+ *   4. If the result is non-green, persist a `kpin_events` row.
+ *   5. If red, navigate to the red-flag screen (via useKpin).
+ *   6. Refresh shared state so dashboard / log update immediately.
  */
 
 import { useState } from "react";
@@ -15,39 +20,96 @@ import { Heading } from "@/components/ui/Heading";
 import { Screen } from "@/components/ui/Screen";
 import { useKpin } from "@/hooks/useKpin";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserData } from "@/contexts/UserDataContext";
+import { supabase } from "@/services/supabase";
 import { BpReading } from "@/types";
 import { colors, radius, spacing, typography } from "@/theme";
 
 export default function LogBpScreen() {
   const { user } = useAuth();
+  const { refresh } = useUserData();
   const { evaluateAndDispatchBp } = useKpin();
   const [systolic, setSystolic] = useState("");
   const [diastolic, setDiastolic] = useState("");
   const [pulse, setPulse] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-  function handleSave() {
+  async function handleSave() {
     const s = parseInt(systolic, 10);
     const d = parseInt(diastolic, 10);
     if (!Number.isFinite(s) || !Number.isFinite(d)) {
       Alert.alert("Missing values", "Please enter both systolic and diastolic.");
       return;
     }
+    if (!user) {
+      Alert.alert("Not signed in", "Please sign in before logging readings.");
+      return;
+    }
 
-    const reading: BpReading = {
-      id: `local-${Date.now()}`,
-      userId: user?.id ?? "anonymous",
-      systolic: s,
-      diastolic: d,
-      pulse: pulse ? parseInt(pulse, 10) : null,
-      measuredAt: new Date().toISOString(),
-      source: "manual",
-      notes: null,
-    };
+    const measuredAt = new Date().toISOString();
+    const pulseValue = pulse ? parseInt(pulse, 10) : null;
 
-    // TODO: persist to Supabase bp_readings table.
-    const ev = evaluateAndDispatchBp(reading);
-    if (ev.level !== "red") {
-      router.back();
+    setIsSaving(true);
+    try {
+      const { data, error } = await supabase
+        .from("bp_readings")
+        .insert({
+          user_id: user.id,
+          systolic: s,
+          diastolic: d,
+          pulse: pulseValue,
+          measured_at: measuredAt,
+          source: "manual",
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const reading: BpReading = {
+        id: data.id,
+        userId: data.user_id,
+        systolic: data.systolic,
+        diastolic: data.diastolic,
+        pulse: data.pulse,
+        measuredAt: data.measured_at,
+        source: data.source,
+        notes: data.notes,
+      };
+
+      const evaluation = evaluateAndDispatchBp(reading);
+
+      if (evaluation.level !== "green") {
+        // Audit trail for any non-green outcome. Best-effort insert; we
+        // don't block the user if it fails.
+        await supabase
+          .from("kpin_events")
+          .insert({
+            user_id: user.id,
+            level: evaluation.level,
+            trigger_source: evaluation.triggers[0] ?? "bp_high",
+            trigger_data: {
+              systolic: s,
+              diastolic: d,
+              reading_id: data.id,
+            },
+            user_acknowledged: false,
+          })
+          .then(({ error: kpinError }) => {
+            if (kpinError) console.warn("[log-bp] kpin_events insert failed:", kpinError);
+          });
+      }
+
+      await refresh();
+
+      if (evaluation.level !== "red") {
+        // For red, useKpin already navigated to /alert/red-flag.
+        router.back();
+      }
+    } catch (err) {
+      Alert.alert("Could not save", (err as Error).message);
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -66,6 +128,7 @@ export default function LogBpScreen() {
             style={styles.input}
             placeholder="120"
             placeholderTextColor={colors.fg.muted}
+            editable={!isSaving}
           />
         </View>
         <View style={styles.field}>
@@ -79,6 +142,7 @@ export default function LogBpScreen() {
             style={styles.input}
             placeholder="80"
             placeholderTextColor={colors.fg.muted}
+            editable={!isSaving}
           />
         </View>
         <View style={styles.field}>
@@ -92,10 +156,15 @@ export default function LogBpScreen() {
             style={styles.input}
             placeholder="72"
             placeholderTextColor={colors.fg.muted}
+            editable={!isSaving}
           />
         </View>
       </Card>
-      <Button label="Save" onPress={handleSave} />
+      <Button
+        label={isSaving ? "Saving..." : "Save"}
+        onPress={handleSave}
+        disabled={isSaving}
+      />
     </Screen>
   );
 }
