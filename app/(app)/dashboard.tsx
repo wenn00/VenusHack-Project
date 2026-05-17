@@ -17,7 +17,7 @@ import { useMoodStreak } from "@/hooks/useMoodStreak";
 import { colors, spacing } from "@/theme";
 
 export default function DashboardScreen() {
-  const { profile, kpinLevel } = useUserData();
+  const { profile, kpinLevel, baselineEvaluation } = useUserData();
   const vitals = useMockHealthKit();
   const { hasLoggedToday, streak, todayEntry } = useMoodStreak();
 
@@ -49,6 +49,11 @@ export default function DashboardScreen() {
       <Card style={{ backgroundColor: levelBg(kpinLevel) }}>
         <Heading level={3}>Risk level: {kpinLevel.toUpperCase()}</Heading>
         <Body tone="muted">KPIN — Key Pregnancy Indicator Network</Body>
+        {baselineEvaluation && (
+          <Body size="sm" style={{ marginTop: spacing.sm }}>
+            {baselineEvaluation.detail}
+          </Body>
+        )}
       </Card>
 
       <Card>

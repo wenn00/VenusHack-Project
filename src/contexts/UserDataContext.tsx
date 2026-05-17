@@ -13,6 +13,7 @@ import { useAuth } from "./AuthContext";
 import { supabase } from "@/services/supabase";
 import { generateLiveVitals } from "@/lib/mock-data";
 import { summarizeKpin } from "@/lib/kpin";
+import { evaluateBaselineRisk } from "@/lib/risk-analysis";
 import {
   BpReading,
   KpinEvaluation,
@@ -32,6 +33,7 @@ interface UserDataValue {
   recentMood: MoodEntry[];
   liveVitals: LiveVitals;
   kpinLevel: KpinLevel;
+  baselineEvaluation: KpinEvaluation | null;
   isLoading: boolean;
   refresh: () => Promise<void>;
   pushKpinEvaluation: (evaluation: KpinEvaluation) => void;
@@ -113,10 +115,13 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
     refresh();
   }, [refresh]);
 
-  const kpinLevel = useMemo<KpinLevel>(
-    () => summarizeKpin(activeEvaluations),
-    [activeEvaluations],
-  );
+  const baselineEvaluation = useMemo(() => {
+    return evaluateBaselineRisk(profile, pregnancyHistory, familyHistory);
+  }, [profile, pregnancyHistory, familyHistory]);
+
+  const kpinLevel = useMemo<KpinLevel>(() => {
+    return summarizeKpin([baselineEvaluation, ...activeEvaluations]);
+  }, [baselineEvaluation, activeEvaluations]);
 
   const value = useMemo<UserDataValue>(
     () => ({
@@ -127,13 +132,14 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
       recentMood,
       liveVitals,
       kpinLevel,
+      baselineEvaluation,
       isLoading,
       refresh,
       pushKpinEvaluation: (evaluation: KpinEvaluation) => {
         setActiveEvaluations((prev) => [...prev.slice(-4), evaluation]);
       },
     }),
-    [profile, pregnancyHistory, familyHistory, recentBp, recentMood, liveVitals, kpinLevel, isLoading, refresh],
+    [profile, pregnancyHistory, familyHistory, recentBp, recentMood, liveVitals, kpinLevel, baselineEvaluation, isLoading, refresh],
   );
 
   return <UserDataContext.Provider value={value}>{children}</UserDataContext.Provider>;
