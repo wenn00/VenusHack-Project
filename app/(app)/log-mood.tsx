@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, TextInput, View, ViewStyle } from "react-native";
+import {
+  Alert,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View,
+  ViewStyle,
+} from "react-native";
 import { router } from "expo-router";
 import { Screen } from "@/components/ui/Screen";
 import { useAuth } from "@/contexts/AuthContext";
@@ -91,34 +101,39 @@ export default function LogMoodScreen() {
       <Text style={styles.brand}>Kairos</Text>
 
       {selected ? (
-        <View style={styles.selectedContent}>
-          <Text style={styles.title}>Glad to see it,{"\n"}{firstName}</Text>
-          <View
-            style={[
-              styles.selectedMood,
-              {
-                backgroundColor: selectedOption?.color,
-                shadowColor: selectedOption?.shadow,
-              },
-            ]}
-          />
-          <TextInput
-            value={note}
-            onChangeText={setNote}
-            multiline
-            placeholder="Leave some notes"
-            placeholderTextColor="rgba(255, 255, 255, 0.44)"
-            style={styles.noteInput}
-            editable={!isSaving}
-          />
-          <Pressable
-            onPress={handleReturnHome}
-            disabled={isSaving}
-            style={({ pressed }) => [styles.returnButton, pressed && styles.pressed, isSaving && styles.disabled]}
-          >
-            <Text style={styles.returnLabel}>{isSaving ? "Saving..." : "Return to Home"}</Text>
-          </Pressable>
-        </View>
+        // The note field is multiline, so the return key inserts a newline
+        // instead of dismissing the keyboard. Tapping any empty space inside
+        // this view closes it. TouchableWithoutFeedback adds no layout node.
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.selectedContent}>
+            <Text style={styles.title}>Glad to see it,{"\n"}{firstName}</Text>
+            <View
+              style={[
+                styles.selectedMood,
+                {
+                  backgroundColor: selectedOption?.color,
+                  shadowColor: selectedOption?.shadow,
+                },
+              ]}
+            />
+            <TextInput
+              value={note}
+              onChangeText={setNote}
+              multiline
+              placeholder="Leave some notes"
+              placeholderTextColor="rgba(255, 255, 255, 0.44)"
+              style={styles.noteInput}
+              editable={!isSaving}
+            />
+            <Pressable
+              onPress={handleReturnHome}
+              disabled={isSaving}
+              style={({ pressed }) => [styles.returnButton, pressed && styles.pressed, isSaving && styles.disabled]}
+            >
+              <Text style={styles.returnLabel}>{isSaving ? "Saving..." : "Return to Home"}</Text>
+            </Pressable>
+          </View>
+        </TouchableWithoutFeedback>
       ) : (
         <View style={styles.selectContent}>
           <Text style={styles.title}>How do you feel{"\n"}today?</Text>
