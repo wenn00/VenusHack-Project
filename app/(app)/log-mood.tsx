@@ -8,12 +8,42 @@ import { supabase } from "@/services/supabase";
 import { Mood } from "@/types";
 import { colors, radius, typography } from "@/theme";
 
+const clusterWidth = 270;
+const circleSize = 56;
+const clusterCenter = clusterWidth / 2;
+const circleLeft = (centerX: number) => centerX - circleSize / 2;
+
 const moodOptions: { mood: Mood; color: string; shadow: string; style: ViewStyle }[] = [
-  { mood: "great", color: "#FCDC84", shadow: "#D9A83C", style: { top: 0, left: 107 } },
-  { mood: "good", color: "#98D3F3", shadow: "#64A9D2", style: { top: 62, left: 31 } },
-  { mood: "okay", color: "#8D9AF7", shadow: "#6672D8", style: { top: 62, left: 183 } },
-  { mood: "low", color: "#FFC782", shadow: "#E69A4D", style: { top: 139, left: 76 } },
-  { mood: "bad", color: "#FFA09B", shadow: "#E37070", style: { top: 139, left: 157 } },
+  {
+    mood: "great",
+    color: "#FCDC84",
+    shadow: "#D9A83C",
+    style: { top: 0, left: circleLeft(clusterCenter) },
+  },
+  {
+    mood: "good",
+    color: "#98D3F3",
+    shadow: "#64A9D2",
+    style: { top: 62, left: circleLeft(clusterCenter - 76) },
+  },
+  {
+    mood: "okay",
+    color: "#8D9AF7",
+    shadow: "#6672D8",
+    style: { top: 62, left: circleLeft(clusterCenter + 76) },
+  },
+  {
+    mood: "low",
+    color: "#FFC782",
+    shadow: "#E69A4D",
+    style: { top: 139, left: circleLeft(clusterCenter - 42) },
+  },
+  {
+    mood: "bad",
+    color: "#FFA09B",
+    shadow: "#E37070",
+    style: { top: 139, left: circleLeft(clusterCenter + 42) },
+  },
 ];
 
 export default function LogMoodScreen() {
@@ -167,15 +197,15 @@ const styles = StyleSheet.create({
   moodCluster: {
     position: "relative",
     alignSelf: "center",
-    width: 270,
+    width: clusterWidth,
     height: 235,
     marginTop: 50,
   },
   moodCircle: {
     position: "absolute",
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: circleSize,
+    height: circleSize,
+    borderRadius: circleSize / 2,
     shadowOpacity: 0.52,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
