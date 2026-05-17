@@ -20,11 +20,16 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+// 在 web 靜態渲染時 Expo 會在 Node 執行此模組，Node 沒有 window；
+// AsyncStorage 的 web 實作會呼叫 window.localStorage 而 crash。
+// React Native 與瀏覽器都有 window，因此這個判斷只會在「伺服器端」關閉持久化。
+const isServer = typeof window === "undefined";
+
 export const supabase = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "", {
   auth: {
-    storage: AsyncStorage,
-    autoRefreshToken: true,
-    persistSession: true,
+    storage: isServer ? undefined : AsyncStorage,
+    autoRefreshToken: !isServer,
+    persistSession: !isServer,
     detectSessionInUrl: false,
   },
 });
