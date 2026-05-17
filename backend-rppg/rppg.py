@@ -163,34 +163,43 @@ def _estimate_bpm(signal: np.ndarray, fs: float) -> Tuple[float, float]:
 def _estimate_hrv_ms(signal: np.ndarray, fs: float, bpm: float) -> float:
     """Estimate HRV (RMSSD-like) from peak-to-peak intervals.
 
-    Filters out implausible intervals using the detected BPM as a sanity
-    check, then computes the root-mean-square of successive differences.
-    Returns 0 when signal quality is too low to estimate reliably.
+    Phone-camera rPPG HRV is notoriously noisy. We mitigate that with:
+      1. A tight plausibility window (±20% of expected RR) to drop outliers.
+      2. A prominence threshold on peak detection so noise spikes are ignored.
+      3. A conservative ceiling (80 ms) — anything higher is almost
+         certainly noise, not real heart-rate variability.
+    Returns 0 when fewer than 4 plausible beats are found.
     """
     if bpm <= 0:
         return 0.0
 
-    # Expected R-R interval in milliseconds, with a generous tolerance window
-    # to keep beats while rejecting spurious peaks.
     expected_ms = 60_000.0 / bpm
-    lo, hi = expected_ms * 0.7, expected_ms * 1.4
+    # Narrower window: keep only intervals close to the dominant rhythm.
+    lo, hi = expected_ms * 0.8, expected_ms * 1.2
 
-    # Minimum spacing for find_peaks: a bit tighter than the expected period
-    # so we don't double-count one beat as two.
-    min_distance = max(int(fs * expected_ms / 1000.0 * 0.6), 1)
-    peaks, _ = find_peaks(signal, distance=min_distance)
-    if len(peaks) < 4:
+    # Require peaks to stand out from the local noise floor.
+    # Half the signal's robust amplitude is a reasonable bar.
+    prominence_threshold = float(np.percentile(np.abs(signal), 75) * 0.5)
+
+    # Beats can't be closer than 80% of the expected interval.
+    min_distance = max(int(fs * expected_ms / 1000.0 * 0.8), 1)
+
+    peaks, _ = find_peaks(
+        signal,
+        distance=min_distance,
+        prominence=prominence_threshold,
+    )
+    if len(peaks) < 5:
         return 0.0
 
     intervals_ms = np.diff(peaks) / fs * 1000.0
     plausible = intervals_ms[(intervals_ms >= lo) & (intervals_ms <= hi)]
-    if len(plausible) < 3:
+    if len(plausible) < 4:
         return 0.0
 
-    # RMSSD — the most commonly reported short-term HRV metric.
+    # RMSSD — root-mean-square of successive differences.
     diffs = np.diff(plausible)
     rmssd = float(np.sqrt(np.mean(diffs ** 2)))
 
-    # Cap at a physiologically sensible ceiling so a noisy reading
-    # cannot produce values like 197 ms.
-    return float(np.clip(rmssd, 0.0, 120.0))
+    # Tighten the ceiling. A true rPPG HRV above 80 ms is rare at rest.
+    return float(np.clip(rmssd, 0.0, 80.0))
