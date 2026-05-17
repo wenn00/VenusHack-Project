@@ -25,7 +25,14 @@ function RootGate() {
     if (!session && !inAuthGroup) {
       router.replace("/(auth)/login");
     } else if (session && inAuthGroup) {
-      router.replace("/(app)/dashboard");
+      // Allow authenticated users to finish the intake survey
+      // segments[0] is usually "(auth)", segments[1] is the screen name
+      const screenName = segments[segments.length - 1];
+      const isIntakePage = screenName?.startsWith("intake-");
+
+      if (!isIntakePage && screenName !== "signup" && screenName !== "login") {
+        router.replace("/(app)/dashboard");
+      }
     }
   }, [session, isLoading, segments, router]);
 

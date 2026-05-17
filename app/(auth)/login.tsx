@@ -9,6 +9,7 @@
 
 import { useState } from "react";
 import { Alert, StyleSheet, View } from "react-native";
+import { router } from "expo-router";
 import { Body } from "@/components/ui/Body";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -65,6 +66,11 @@ export default function LoginScreen() {
           variant="ghost"
           onPress={handleDevSkip}
           disabled={isBusy}
+        />
+        <Button
+          label="Don't have an account? Sign Up"
+          variant="ghost"
+          onPress={() => router.push("/(auth)/signup")}
         />
       </Card>
 
