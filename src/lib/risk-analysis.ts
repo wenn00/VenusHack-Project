@@ -32,11 +32,9 @@ export function evaluateBaselineRisk(
       pregHistory.hadGestationalDiabetes ||
       pregHistory.hadPretermBirth
     ) {
-      if (level !== "red") {
-        level = "yellow";
-        message = "Elevated baseline risk.";
-        detail = "Your history of pregnancy complications means we should be extra vigilant with your tracking.";
-      }
+      level = "yellow";
+      message = "Elevated baseline risk.";
+      detail = "Your history of pregnancy complications means we should be extra vigilant with your tracking.";
     }
   }
 
