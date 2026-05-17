@@ -10,32 +10,72 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { UserDataProvider } from "@/contexts/UserDataContext";
+import { UserDataProvider, useUserData } from "@/contexts/UserDataContext";
 
 function RootGate() {
-  const { session, isLoading } = useAuth();
+  const { session, isLoading: isAuthLoading } = useAuth();
+  const {
+    profile,
+    pregnancyHistory,
+    familyHistory,
+    isLoading: isUserDataLoading,
+  } = useUserData();
   const segments = useSegments();
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isAuthLoading) return;
 
     const firstSegment = segments[0];
+    const screenName = segments[segments.length - 1];
     const inAuthGroup = firstSegment === "(auth)";
+    const inAppGroup = firstSegment === "(app)";
+    const isAuthEntryPage = screenName === "login" || screenName === "signup";
+    const isIntakePage = screenName?.startsWith("intake-");
 
-    if (!session && !inAuthGroup) {
-      router.replace("/(auth)/login");
-    } else if (session && inAuthGroup) {
-      // Allow authenticated users to finish the intake survey
-      // segments[0] is usually "(auth)", segments[1] is the screen name
-      const screenName = segments[segments.length - 1];
-      const isIntakePage = screenName?.startsWith("intake-");
-
-      if (!isIntakePage && screenName !== "signup" && screenName !== "login") {
-        router.replace("/(app)/dashboard");
+    if (!session) {
+      if (!inAuthGroup || isIntakePage) {
+        router.replace("/(auth)/login");
       }
+      return;
     }
-  }, [session, isLoading, segments, router]);
+
+    if (isAuthEntryPage || isUserDataLoading) return;
+
+    if (!profile || !profile.fullName || profile.stage === "not_specified") {
+      if (screenName !== "intake-basic") {
+        router.replace("/(auth)/intake-basic");
+      }
+      return;
+    }
+
+    if (!pregnancyHistory) {
+      if (screenName !== "intake-pregnancy") {
+        router.replace("/(auth)/intake-pregnancy");
+      }
+      return;
+    }
+
+    if (!familyHistory) {
+      if (screenName !== "intake-family") {
+        router.replace("/(auth)/intake-family");
+      }
+      return;
+    }
+
+    if (!inAppGroup) {
+      router.replace("/(app)/dashboard");
+    }
+  }, [
+    session,
+    isAuthLoading,
+    isUserDataLoading,
+    segments,
+    router,
+    profile,
+    pregnancyHistory,
+    familyHistory,
+  ]);
 
   return <Slot />;
 }
