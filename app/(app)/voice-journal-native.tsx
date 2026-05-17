@@ -26,7 +26,7 @@ export default function VoiceJournalScreen() {
 
   // --- Speech Recognition Setup ---
   useSpeechRecognitionEvent("start", () => setIsRecording(true));
-  useSpeechRecognitionEvent("stop", () => setIsRecording(false));
+  useSpeechRecognitionEvent("end", () => setIsRecording(false));
   useSpeechRecognitionEvent("result", (event) => {
     // Some engines return segments, we join them to show the full text
     const text = event.results
@@ -100,7 +100,7 @@ export default function VoiceJournalScreen() {
   };
 
   return (
-    <Screen style={styles.container}>
+    <Screen contentStyle={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.replace("/(app)/dashboard")} style={styles.homeButton}>
           <Ionicons name="home-outline" size={28} color={colors.fg.primary} />
