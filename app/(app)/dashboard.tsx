@@ -11,12 +11,14 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Heading } from "@/components/ui/Heading";
 import { Screen } from "@/components/ui/Screen";
+import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
 import { useMockHealthKit } from "@/hooks/useMockHealthKit";
 import { useMoodStreak } from "@/hooks/useMoodStreak";
 import { colors, spacing } from "@/theme";
 
 export default function DashboardScreen() {
+  const { signOut } = useAuth();
   const { profile, kpinLevel, baselineEvaluation } = useUserData();
   const vitals = useMockHealthKit();
   const { hasLoggedToday, streak, todayEntry } = useMoodStreak();
@@ -86,6 +88,8 @@ export default function DashboardScreen() {
           variant="secondary"
         />
       </View>
+
+      <Button label="Sign out" variant="ghost" onPress={() => signOut()} />
     </Screen>
   );
 }
