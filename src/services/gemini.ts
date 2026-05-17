@@ -120,10 +120,10 @@ export async function summarizeVoiceJournal(transcript: string): Promise<VoiceJo
 }
 
 export interface DoctorSummary {
-  patient_context: string;
-  vitals_summary: string;
-  symptom_summary: string;
-  mood_summary: string;
+  patient_context: string[];
+  vitals_summary: string[];
+  symptom_summary: string[];
+  mood_summary: string[];
   risk_factors: string[];
   questions_to_ask: string[];
   urgent_concerns: string[];
