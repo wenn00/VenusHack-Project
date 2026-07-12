@@ -145,12 +145,14 @@ export default function LoginScreen() {
         onPress={() => router.push("/(auth)/signup")}
         disabled={isBusy}
       />
-      <Button
-        label="Skip for now (dev)"
-        variant="ghost"
-        onPress={handleDevSkip}
-        disabled={isBusy}
-      />
+      {__DEV__ && (
+        <Button
+          label="Skip for now (dev)"
+          variant="ghost"
+          onPress={handleDevSkip}
+          disabled={isBusy}
+        />
+      )}
     </Screen>
   );
 }
