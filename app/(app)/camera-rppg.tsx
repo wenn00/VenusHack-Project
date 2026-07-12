@@ -53,7 +53,10 @@ export default function CameraRppgScreen() {
   const { evaluateAndDispatchRppg } = useKpin();
 
   const cameraRef = useRef<CameraView>(null);
-  const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
+  // stopRecording() makes the pending recordAsync promise RESOLVE with the
+  // partial file, so cancellation must be tracked explicitly or handleStart
+  // continues straight into upload after the user backed out.
+  const cancelledRef = useRef(false);
 
   const [stage, setStage] = useState<Stage>("idle");
   const [serverState, setServerState] = useState<ServerState>("warming");
@@ -81,10 +84,12 @@ export default function CameraRppgScreen() {
     };
   }, []);
 
-  // If the user navigates away mid-recording, stop the recording gracefully.
+  // If the user navigates away mid-recording, stop the recording gracefully
+  // and make sure the in-flight handleStart doesn't upload the partial clip.
   useFocusEffect(
     useCallback(() => {
       return () => {
+        cancelledRef.current = true;
         cameraRef.current?.stopRecording();
       };
     }, []),
@@ -133,6 +138,7 @@ export default function CameraRppgScreen() {
   async function handleStart() {
     if (!cameraRef.current) return;
 
+    cancelledRef.current = false;
     setStage("recording");
     setSecondsLeft(RECORD_SECONDS);
     setErrorMessage(null);
@@ -146,12 +152,11 @@ export default function CameraRppgScreen() {
     }, 200);
 
     try {
-      const promise = cameraRef.current.recordAsync({
+      const video = await cameraRef.current.recordAsync({
         maxDuration: RECORD_SECONDS,
       });
-      recordingPromiseRef.current = promise;
-      const video = await promise;
       clearInterval(tick);
+      if (cancelledRef.current) return;
 
       if (!video?.uri) {
         throw new RppgError("LOW_QUALITY_VIDEO", "Recording produced no file.");
@@ -159,10 +164,12 @@ export default function CameraRppgScreen() {
 
       setStage("analyzing");
       const rppg = await measureRppg(video.uri);
+      if (cancelledRef.current) return;
       setResult(rppg);
       setStage("result");
     } catch (err) {
       clearInterval(tick);
+      if (cancelledRef.current) return;
       const message =
         err instanceof RppgError ? err.message : (err as Error)?.message ?? "Unknown error";
       setErrorCode(err instanceof RppgError ? err.code : null);
@@ -172,6 +179,7 @@ export default function CameraRppgScreen() {
   }
 
   function handleCancel() {
+    cancelledRef.current = true;
     cameraRef.current?.stopRecording();
     setStage("idle");
   }
