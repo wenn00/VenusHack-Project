@@ -260,7 +260,9 @@ async function gatherThirtyDayData(userId: string): Promise<GatheredData> {
       .select("raw_transcript, ai_summary, recorded_at")
       .eq("user_id", userId)
       .gte("recorded_at", since)
-      .order("recorded_at", { ascending: true })
+      // Newest first so the cap keeps the most recent (most clinically
+      // relevant) entries; re-sorted chronologically below for the prompt.
+      .order("recorded_at", { ascending: false })
       .limit(MAX_VOICE_ENTRIES),
     supabase
       .from("symptom_reports")
@@ -274,7 +276,7 @@ async function gatherThirtyDayData(userId: string): Promise<GatheredData> {
       .eq("user_id", userId)
       .eq("role", "user")
       .gte("created_at", since)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(MAX_CHAT_EXCERPTS),
     supabase.from("profiles").select("*").eq("id", userId).maybeSingle(),
     supabase
@@ -325,9 +327,9 @@ async function gatherThirtyDayData(userId: string): Promise<GatheredData> {
     bp_readings: bp.data ?? [],
     rppg_measurements: vitals.data ?? [],
     mood_entries: mood.data ?? [],
-    voice_journal_entries: voice.data ?? [],
+    voice_journal_entries: [...(voice.data ?? [])].reverse(),
     symptom_reports: symptoms.data ?? [],
-    user_chat_excerpts: (chat.data ?? []).map((m: any) => ({
+    user_chat_excerpts: [...(chat.data ?? [])].reverse().map((m: any) => ({
       at: m.created_at,
       text: m.content,
     })),
