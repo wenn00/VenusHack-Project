@@ -90,10 +90,13 @@ export default function IntakePregnancyScreen() {
           onPress={handleContinue}
           disabled={isSubmitting}
         />
+        {/* RootGate requires a pregnancy_history row to leave this screen,
+            so skipping must persist the (all-false) defaults — a bare
+            navigation just bounced the user straight back here. */}
         <Button
           label="Skip for now"
           variant="ghost"
-          onPress={() => router.push("/(auth)/intake-family")}
+          onPress={handleContinue}
           disabled={isSubmitting}
         />
       </View>
