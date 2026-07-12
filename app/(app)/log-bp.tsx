@@ -19,6 +19,7 @@ import { Card } from "@/components/ui/Card";
 import { Heading } from "@/components/ui/Heading";
 import { Screen } from "@/components/ui/Screen";
 import { useKpin } from "@/hooks/useKpin";
+import { validateBpInput } from "@/lib/bp-validation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
 import { supabase } from "@/services/supabase";
@@ -35,19 +36,18 @@ export default function LogBpScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   async function handleSave() {
-    const s = parseInt(systolic, 10);
-    const d = parseInt(diastolic, 10);
-    if (!Number.isFinite(s) || !Number.isFinite(d)) {
-      Alert.alert("Missing values", "Please enter both systolic and diastolic.");
+    const validated = validateBpInput(systolic, diastolic, pulse);
+    if (!validated.ok) {
+      Alert.alert("Check your reading", validated.error);
       return;
     }
+    const { systolic: s, diastolic: d, pulse: pulseValue } = validated;
     if (!user) {
       Alert.alert("Not signed in", "Please sign in before logging readings.");
       return;
     }
 
     const measuredAt = new Date().toISOString();
-    const pulseValue = pulse ? parseInt(pulse, 10) : null;
 
     setIsSaving(true);
     try {
