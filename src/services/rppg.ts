@@ -6,6 +6,7 @@
  */
 
 import { RppgError, RppgResult } from "@/types";
+import { parseRppgErrorBody } from "./rppg-errors";
 
 const BASE_URL = process.env.EXPO_PUBLIC_RPPG_API_URL;
 // Generous enough to cover a cold-started Render free-tier dyno
@@ -45,14 +46,14 @@ export async function measureRppg(videoUri: string): Promise<RppgResult> {
   }
 
   if (!response.ok) {
-    let detail = "Server error";
+    let body: unknown = null;
     try {
-      const body = await response.json();
-      detail = body.message ?? detail;
+      body = await response.json();
     } catch {
-      // Ignore JSON parse errors.
+      // Non-JSON error body; the parser falls back to a generic message.
     }
-    throw new RppgError("INTERNAL_ERROR", detail);
+    const { code, message } = parseRppgErrorBody(body);
+    throw new RppgError(code, message);
   }
 
   const data = (await response.json()) as {

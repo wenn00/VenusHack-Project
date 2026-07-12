@@ -38,7 +38,7 @@ import { useUserData } from "@/contexts/UserDataContext";
 import { useKpin } from "@/hooks/useKpin";
 import { measureRppg, pingRppg } from "@/services/rppg";
 import { supabase } from "@/services/supabase";
-import { RppgError, RppgResult, VitalsLog } from "@/types";
+import { RppgError, RppgErrorCode, RppgResult, VitalsLog } from "@/types";
 import { colors, radius, spacing } from "@/theme";
 
 type Stage = "idle" | "recording" | "analyzing" | "result" | "error";
@@ -60,6 +60,7 @@ export default function CameraRppgScreen() {
   const [secondsLeft, setSecondsLeft] = useState(RECORD_SECONDS);
   const [result, setResult] = useState<RppgResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<RppgErrorCode | null>(null);
 
   // Wake up Render's free-tier dyno BEFORE the user records.
   // The first ping after sleep can take up to ~50 seconds.
@@ -164,6 +165,7 @@ export default function CameraRppgScreen() {
       clearInterval(tick);
       const message =
         err instanceof RppgError ? err.message : (err as Error)?.message ?? "Unknown error";
+      setErrorCode(err instanceof RppgError ? err.code : null);
       setErrorMessage(message);
       setStage("error");
     }
@@ -261,14 +263,17 @@ export default function CameraRppgScreen() {
           <Body>{errorMessage ?? "Couldn't complete the measurement."}</Body>
         </Card>
         <Body tone="muted" size="sm">
-          {serverState === "unreachable"
-            ? "The analysis server isn't reachable. Check your internet, then try again."
-            : "Try again — the analysis server should be warm now."}
+          {errorCode === "FACE_NOT_DETECTED" || errorCode === "LOW_QUALITY_VIDEO"
+            ? "Keep your face inside the circle and try again in bright, even light."
+            : serverState === "unreachable"
+              ? "The analysis server isn't reachable. Check your internet, then try again."
+              : "Try again — the analysis server should be warm now."}
         </Body>
         <Button
           label="Try again"
           onPress={() => {
             setErrorMessage(null);
+            setErrorCode(null);
             setStage("idle");
           }}
         />
