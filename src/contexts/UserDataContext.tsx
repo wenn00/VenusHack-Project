@@ -63,7 +63,13 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
   // double-seed if refresh() is somehow called twice in flight.
   const seedAttemptedRef = useRef(false);
 
+  // Monotonic sequence for refresh calls: overlapping refreshes (the user
+  // effect racing a screen's manual refresh, or a fast account switch) must
+  // not let a stale response overwrite newer state.
+  const refreshSeqRef = useRef(0);
+
   const refresh = useCallback(async () => {
+    const seq = ++refreshSeqRef.current;
     if (!user) {
       setProfile(null);
       setPregnancyHistory(null);
@@ -119,6 +125,10 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
         [profileRes, pregRes, familyRes, bpRes, moodRes] = await fetchAll();
       }
 
+      // A newer refresh started while this one was in flight — drop these
+      // results instead of clobbering the fresher state.
+      if (seq !== refreshSeqRef.current) return;
+
       setProfile(profileRes.data ? mapProfile(profileRes.data) : null);
       setPregnancyHistory(pregRes.data ? mapPregnancyHistory(pregRes.data) : null);
       setFamilyHistory(familyRes.data ? mapFamilyHistory(familyRes.data) : null);
@@ -128,7 +138,9 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn("[UserDataContext] refresh failed:", err);
     } finally {
-      setIsLoading(false);
+      if (seq === refreshSeqRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [user]);
 
