@@ -6,7 +6,8 @@
  */
 
 import { StyleSheet, View } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
+import { getActiveAlert } from "@/lib/alert-store";
 import { callOb } from "@/lib/linking";
 import { Body } from "@/components/ui/Body";
 import { Button } from "@/components/ui/Button";
@@ -15,11 +16,13 @@ import { Screen } from "@/components/ui/Screen";
 import { colors, spacing } from "@/theme";
 
 export default function RedFlagScreen() {
-  const params = useLocalSearchParams<{ message?: string; detail?: string }>();
+  // Never render route params here: the kairos:// scheme would let an
+  // external link put arbitrary text into this first-party medical alert.
+  const activeAlert = getActiveAlert();
 
-  const message = params.message ?? "Let's slow down for a moment.";
+  const message = activeAlert?.message ?? "Let's slow down for a moment.";
   const detail =
-    params.detail ??
+    activeAlert?.detail ??
     "Something we tracked is outside the safe range during pregnancy. Let's figure out the next step together.";
 
   return (
