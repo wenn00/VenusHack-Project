@@ -13,6 +13,7 @@ import { useAuth } from "./AuthContext";
 import { supabase } from "@/services/supabase";
 import { generateLiveVitals } from "@/lib/mock-data";
 import { seedDemoData } from "@/lib/seed-demo";
+import { shouldSeedDemoData } from "@/lib/seed-policy";
 import { summarizeKpin } from "@/lib/kpin";
 import { evaluateBaselineRisk } from "@/lib/risk-analysis";
 import {
@@ -62,7 +63,13 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
   // double-seed if refresh() is somehow called twice in flight.
   const seedAttemptedRef = useRef(false);
 
+  // Monotonic sequence for refresh calls: overlapping refreshes (the user
+  // effect racing a screen's manual refresh, or a fast account switch) must
+  // not let a stale response overwrite newer state.
+  const refreshSeqRef = useRef(0);
+
   const refresh = useCallback(async () => {
+    const seq = ++refreshSeqRef.current;
     if (!user) {
       setProfile(null);
       setPregnancyHistory(null);
@@ -109,14 +116,18 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
 
       let [profileRes, pregRes, familyRes, bpRes, moodRes] = await fetchAll();
 
-      // A fresh anonymous account has no blood-pressure history. Seed the
-      // demo body data (BP + rPPG vitals) once, then re-fetch so the screens
-      // render with it. Everything else is logged live during the demo.
-      if (!seedAttemptedRef.current && (bpRes.data ?? []).length === 0) {
+      // A fresh ANONYMOUS account gets demo body data (BP + rPPG vitals)
+      // seeded once, then re-fetched so the screens render with it. Real
+      // (email) accounts must never receive fabricated readings.
+      if (!seedAttemptedRef.current && shouldSeedDemoData(user, (bpRes.data ?? []).length)) {
         seedAttemptedRef.current = true;
         await seedDemoData(user.id);
         [profileRes, pregRes, familyRes, bpRes, moodRes] = await fetchAll();
       }
+
+      // A newer refresh started while this one was in flight — drop these
+      // results instead of clobbering the fresher state.
+      if (seq !== refreshSeqRef.current) return;
 
       setProfile(profileRes.data ? mapProfile(profileRes.data) : null);
       setPregnancyHistory(pregRes.data ? mapPregnancyHistory(pregRes.data) : null);
@@ -127,7 +138,9 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.warn("[UserDataContext] refresh failed:", err);
     } finally {
-      setIsLoading(false);
+      if (seq === refreshSeqRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [user]);
 

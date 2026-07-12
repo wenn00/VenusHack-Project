@@ -13,8 +13,9 @@ const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  // We avoid throwing here so the app still renders during early dev.
-  // Screens that hit the network will fail loudly when actually used.
+  // Soft-fail so the app still renders during early dev: createClient
+  // throws on a falsy URL, so we substitute an unreachable placeholder —
+  // screens that hit the network then fail loudly when actually used.
   console.warn(
     "[supabase] Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY in .env.local",
   );
@@ -25,11 +26,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // React Native 與瀏覽器都有 window，因此這個判斷只會在「伺服器端」關閉持久化。
 const isServer = typeof window === "undefined";
 
-export const supabase = createClient(supabaseUrl ?? "", supabaseAnonKey ?? "", {
-  auth: {
-    storage: isServer ? undefined : AsyncStorage,
-    autoRefreshToken: !isServer,
-    persistSession: !isServer,
-    detectSessionInUrl: false,
+export const supabase = createClient(
+  supabaseUrl || "https://missing-config.invalid",
+  supabaseAnonKey || "missing-anon-key",
+  {
+    auth: {
+      storage: isServer ? undefined : AsyncStorage,
+      autoRefreshToken: !isServer,
+      persistSession: !isServer,
+      detectSessionInUrl: false,
+    },
   },
-});
+);

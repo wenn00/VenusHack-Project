@@ -19,6 +19,7 @@ import { Card } from "@/components/ui/Card";
 import { Heading } from "@/components/ui/Heading";
 import { Screen } from "@/components/ui/Screen";
 import { useKpin } from "@/hooks/useKpin";
+import { validateBpInput } from "@/lib/bp-validation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
 import { supabase } from "@/services/supabase";
@@ -35,19 +36,18 @@ export default function LogBpScreen() {
   const [isSaving, setIsSaving] = useState(false);
 
   async function handleSave() {
-    const s = parseInt(systolic, 10);
-    const d = parseInt(diastolic, 10);
-    if (!Number.isFinite(s) || !Number.isFinite(d)) {
-      Alert.alert("Missing values", "Please enter both systolic and diastolic.");
+    const validated = validateBpInput(systolic, diastolic, pulse);
+    if (!validated.ok) {
+      Alert.alert("Check your reading", validated.error);
       return;
     }
+    const { systolic: s, diastolic: d, pulse: pulseValue } = validated;
     if (!user) {
       Alert.alert("Not signed in", "Please sign in before logging readings.");
       return;
     }
 
     const measuredAt = new Date().toISOString();
-    const pulseValue = pulse ? parseInt(pulse, 10) : null;
 
     setIsSaving(true);
     try {
@@ -81,8 +81,8 @@ export default function LogBpScreen() {
 
       if (evaluation.level !== "green") {
         // Audit trail for any non-green outcome. Best-effort insert; we
-        // don't block the user if it fails.
-        await supabase
+        // don't block the user on it (fire-and-forget, errors logged).
+        void supabase
           .from("kpin_events")
           .insert({
             user_id: user.id,
@@ -102,8 +102,13 @@ export default function LogBpScreen() {
 
       await refresh();
 
-      if (evaluation.level !== "red") {
-        // For red, useKpin already navigated to /alert/red-flag.
+      // For red, useKpin already navigated to /alert/red-flag. Yellow
+      // guidance was previously computed and then silently discarded.
+      if (evaluation.level === "yellow") {
+        Alert.alert(evaluation.message, evaluation.detail, [
+          { text: "Got it", onPress: () => router.back() },
+        ]);
+      } else if (evaluation.level !== "red") {
         router.back();
       }
     } catch (err) {

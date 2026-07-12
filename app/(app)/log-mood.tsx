@@ -63,7 +63,7 @@ export default function LogMoodScreen() {
   const [note, setNote] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const firstName = profile?.fullName?.split(" ")[0] || "Sahana";
+  const firstName = profile?.fullName?.split(" ")[0];
   const selectedOption = moodOptions.find((option) => option.mood === selected);
 
   async function handleReturnHome() {
@@ -106,7 +106,9 @@ export default function LogMoodScreen() {
         // this view closes it. TouchableWithoutFeedback adds no layout node.
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
           <View style={styles.selectedContent}>
-            <Text style={styles.title}>Glad to see it,{"\n"}{firstName}</Text>
+            <Text style={styles.title}>
+              Glad to see it{firstName ? `,\n${firstName}` : ""}
+            </Text>
             <View
               style={[
                 styles.selectedMood,

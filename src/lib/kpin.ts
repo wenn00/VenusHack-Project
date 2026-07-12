@@ -195,6 +195,10 @@ function symptomToTrigger(symptom: SymptomKey): KpinTriggerSource {
       return "symptom_swelling_severe";
     case "headache":
       return "symptom_headache_severe";
+    case "severe_abdominal_pain":
+      return "symptom_abdominal_pain_severe";
+    case "decreased_fetal_movement":
+      return "symptom_decreased_fetal_movement";
     default:
       return "voice_journal_concern";
   }

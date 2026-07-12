@@ -7,6 +7,7 @@
 import { useCallback } from "react";
 import { router } from "expo-router";
 import { useUserData } from "@/contexts/UserDataContext";
+import { setActiveAlert } from "@/lib/alert-store";
 import { evaluateBp, evaluateRppg, evaluateSymptoms } from "@/lib/kpin";
 import { BpReading, KpinEvaluation, SymptomReport, VitalsLog } from "@/types";
 
@@ -17,13 +18,10 @@ export function useKpin() {
     (evaluation: KpinEvaluation) => {
       pushKpinEvaluation(evaluation);
       if (evaluation.level === "red") {
-        router.push({
-          pathname: "/alert/red-flag",
-          params: {
-            message: evaluation.message,
-            detail: evaluation.detail,
-          },
-        });
+        // Handed over in memory, not via route params — params can be forged
+        // through the app's kairos:// scheme (see src/lib/alert-store.ts).
+        setActiveAlert(evaluation);
+        router.push("/alert/red-flag");
       }
     },
     [pushKpinEvaluation],

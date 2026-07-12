@@ -38,7 +38,7 @@ import { useUserData } from "@/contexts/UserDataContext";
 import { useKpin } from "@/hooks/useKpin";
 import { measureRppg, pingRppg } from "@/services/rppg";
 import { supabase } from "@/services/supabase";
-import { RppgError, RppgResult, VitalsLog } from "@/types";
+import { RppgError, RppgErrorCode, RppgResult, VitalsLog } from "@/types";
 import { colors, radius, spacing } from "@/theme";
 
 type Stage = "idle" | "recording" | "analyzing" | "result" | "error";
@@ -53,19 +53,24 @@ export default function CameraRppgScreen() {
   const { evaluateAndDispatchRppg } = useKpin();
 
   const cameraRef = useRef<CameraView>(null);
-  const recordingPromiseRef = useRef<Promise<{ uri: string } | undefined> | null>(null);
+  // stopRecording() makes the pending recordAsync promise RESOLVE with the
+  // partial file, so cancellation must be tracked explicitly or handleStart
+  // continues straight into upload after the user backed out.
+  const cancelledRef = useRef(false);
 
   const [stage, setStage] = useState<Stage>("idle");
   const [serverState, setServerState] = useState<ServerState>("warming");
   const [secondsLeft, setSecondsLeft] = useState(RECORD_SECONDS);
   const [result, setResult] = useState<RppgResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<RppgErrorCode | null>(null);
 
   // Wake up Render's free-tier dyno BEFORE the user records.
   // The first ping after sleep can take up to ~50 seconds.
   useEffect(() => {
     let cancelled = false;
-    setServerState("warming");
+    // serverState already initializes to "warming"; re-setting it here was
+    // a redundant synchronous setState inside the effect.
     pingRppg()
       .then((ok) => {
         if (cancelled) return;
@@ -80,10 +85,12 @@ export default function CameraRppgScreen() {
     };
   }, []);
 
-  // If the user navigates away mid-recording, stop the recording gracefully.
+  // If the user navigates away mid-recording, stop the recording gracefully
+  // and make sure the in-flight handleStart doesn't upload the partial clip.
   useFocusEffect(
     useCallback(() => {
       return () => {
+        cancelledRef.current = true;
         cameraRef.current?.stopRecording();
       };
     }, []),
@@ -132,6 +139,7 @@ export default function CameraRppgScreen() {
   async function handleStart() {
     if (!cameraRef.current) return;
 
+    cancelledRef.current = false;
     setStage("recording");
     setSecondsLeft(RECORD_SECONDS);
     setErrorMessage(null);
@@ -145,12 +153,11 @@ export default function CameraRppgScreen() {
     }, 200);
 
     try {
-      const promise = cameraRef.current.recordAsync({
+      const video = await cameraRef.current.recordAsync({
         maxDuration: RECORD_SECONDS,
       });
-      recordingPromiseRef.current = promise;
-      const video = await promise;
       clearInterval(tick);
+      if (cancelledRef.current) return;
 
       if (!video?.uri) {
         throw new RppgError("LOW_QUALITY_VIDEO", "Recording produced no file.");
@@ -158,18 +165,22 @@ export default function CameraRppgScreen() {
 
       setStage("analyzing");
       const rppg = await measureRppg(video.uri);
+      if (cancelledRef.current) return;
       setResult(rppg);
       setStage("result");
     } catch (err) {
       clearInterval(tick);
+      if (cancelledRef.current) return;
       const message =
         err instanceof RppgError ? err.message : (err as Error)?.message ?? "Unknown error";
+      setErrorCode(err instanceof RppgError ? err.code : null);
       setErrorMessage(message);
       setStage("error");
     }
   }
 
   function handleCancel() {
+    cancelledRef.current = true;
     cameraRef.current?.stopRecording();
     setStage("idle");
   }
@@ -209,7 +220,11 @@ export default function CameraRppgScreen() {
       const evaluation = evaluateAndDispatchRppg(vitals);
       await refresh();
 
-      if (evaluation.level !== "red") {
+      if (evaluation.level === "yellow") {
+        Alert.alert(evaluation.message, evaluation.detail, [
+          { text: "Got it", onPress: () => router.back() },
+        ]);
+      } else if (evaluation.level !== "red") {
         router.back();
       }
     } catch (err) {
@@ -261,14 +276,17 @@ export default function CameraRppgScreen() {
           <Body>{errorMessage ?? "Couldn't complete the measurement."}</Body>
         </Card>
         <Body tone="muted" size="sm">
-          {serverState === "unreachable"
-            ? "The analysis server isn't reachable. Check your internet, then try again."
-            : "Try again — the analysis server should be warm now."}
+          {errorCode === "FACE_NOT_DETECTED" || errorCode === "LOW_QUALITY_VIDEO"
+            ? "Keep your face inside the circle and try again in bright, even light."
+            : serverState === "unreachable"
+              ? "The analysis server isn't reachable. Check your internet, then try again."
+              : "Try again — the analysis server should be warm now."}
         </Body>
         <Button
           label="Try again"
           onPress={() => {
             setErrorMessage(null);
+            setErrorCode(null);
             setStage("idle");
           }}
         />

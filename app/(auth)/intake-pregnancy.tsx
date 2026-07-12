@@ -28,15 +28,32 @@ export default function IntakePregnancyScreen() {
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from("pregnancy_history").insert({
+      // number_of_pregnancies is never asked in the UI — store null rather
+      // than fabricating a count.
+      const row = {
         user_id: user.id,
         had_preeclampsia: hadPreeclampsia,
         had_gestational_hypertension: hadGestationalHypertension,
         had_gestational_diabetes: hadGestationalDiabetes,
         had_preterm_birth: hadPretermBirth,
         had_eclampsia: hadEclampsia,
-        number_of_pregnancies: 1,
-      });
+        number_of_pregnancies: null,
+      };
+
+      // Update-or-insert: re-submitting (back navigation, retries) must not
+      // accumulate duplicate history rows.
+      const { data: existing, error: lookupError } = await supabase
+        .from("pregnancy_history")
+        .select("id")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (lookupError) throw lookupError;
+
+      const { error } = existing
+        ? await supabase.from("pregnancy_history").update(row).eq("id", existing.id)
+        : await supabase.from("pregnancy_history").insert(row);
 
       if (error) throw error;
 
@@ -90,10 +107,13 @@ export default function IntakePregnancyScreen() {
           onPress={handleContinue}
           disabled={isSubmitting}
         />
+        {/* RootGate requires a pregnancy_history row to leave this screen,
+            so skipping must persist the (all-false) defaults — a bare
+            navigation just bounced the user straight back here. */}
         <Button
           label="Skip for now"
           variant="ghost"
-          onPress={() => router.push("/(auth)/intake-family")}
+          onPress={handleContinue}
           disabled={isSubmitting}
         />
       </View>

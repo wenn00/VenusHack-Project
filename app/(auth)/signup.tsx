@@ -7,6 +7,7 @@ import { Screen } from "@/components/ui/Screen";
 import { TextField } from "@/components/ui/TextField";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
+import { isValidDateOfBirth } from "@/lib/dob";
 import { supabase } from "@/services/supabase";
 import { spacing, typography } from "@/theme";
 
@@ -38,6 +39,10 @@ export default function SignupScreen() {
 
     if (!normalizedEmail || !firstName.trim() || !lastName.trim() || !dateOfBirth.trim()) {
       Alert.alert("Error", "Please fill in all fields.");
+      return;
+    }
+    if (!isValidDateOfBirth(dateOfBirth)) {
+      Alert.alert("Check date of birth", "Please enter your date of birth as MM/DD/YYYY.");
       return;
     }
 
@@ -80,16 +85,22 @@ export default function SignupScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Could not retrieve user after verification.");
 
-      // 3. Create the profile
+      // 3. Create the profile if it doesn't exist yet. Signup can be reached
+      // by an already-registered email (shouldCreateUser:true sends an OTP
+      // either way), so this must never overwrite an existing profile —
+      // ignoreDuplicates makes it an insert-if-missing.
       const { error: profileError } = await supabase
         .from("profiles")
-        .upsert({
-          id: user.id,
-          email: normalizedEmail,
-          full_name: fullName,
-          stage: "not_specified",
-          updated_at: new Date().toISOString(),
-        });
+        .upsert(
+          {
+            id: user.id,
+            email: normalizedEmail,
+            full_name: fullName,
+            stage: "not_specified",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id", ignoreDuplicates: true },
+        );
 
       if (profileError) throw profileError;
 

@@ -24,7 +24,9 @@ export interface PregnancyHistory {
   hadGestationalDiabetes: boolean;
   hadPretermBirth: boolean;
   hadEclampsia: boolean;
-  numberOfPregnancies: number;
+  // Nullable: the intake UI never asks for a count, and fabricating one
+  // (the old hardcoded 1) is worse than admitting it's unknown.
+  numberOfPregnancies: number | null;
   notes: string | null;
 }
 

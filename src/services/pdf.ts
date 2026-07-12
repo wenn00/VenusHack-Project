@@ -57,7 +57,6 @@ export async function exportDoctorSummary(doc: DoctorSummaryDocument): Promise<v
 
 function renderDoctorSummaryHtml(doc: DoctorSummaryDocument): string {
   const hasUrgent = doc.urgentConcerns.length > 0;
-  const cleanMoodEntries = doc.moodEntries.filter((m) => !isGarbageNote(m.note));
 
   return `<!doctype html>
 <html>
@@ -204,7 +203,7 @@ function renderDoctorSummaryHtml(doc: DoctorSummaryDocument): string {
     <div>
       <h2>Mood</h2>
       ${renderBullets(doc.moodSummary)}
-      ${cleanMoodEntries.length > 0 ? renderMoodTable(cleanMoodEntries) : ""}
+      ${doc.moodEntries.length > 0 ? renderMoodTable(doc.moodEntries) : ""}
     </div>
   </div>
 
@@ -224,20 +223,6 @@ function renderDoctorSummaryHtml(doc: DoctorSummaryDocument): string {
   </div>
 </body>
 </html>`;
-}
-
-/**
- * Filter out junk notes (e.g. "11111111", "aaa", whitespace) that the user
- * typed while testing — they make the mood table look unprofessional.
- */
-function isGarbageNote(note: string | null): boolean {
-  if (!note) return false;
-  const trimmed = note.trim();
-  if (trimmed.length === 0) return false;
-  if (trimmed.length < 3) return true;
-  // All the same character repeated.
-  if (/^(.)\1+$/.test(trimmed)) return true;
-  return false;
 }
 
 function renderBullets(items: string[]): string {
@@ -276,11 +261,19 @@ function renderBpTable(rows: BpRow[]): string {
   </table>`;
 }
 
+const MOOD_TABLE_LIMIT = 10;
+
 function renderMoodTable(rows: MoodRow[]): string {
   const sorted = [...rows].sort(
     (a, b) => new Date(b.loggedAt).getTime() - new Date(a.loggedAt).getTime(),
   );
-  const recent = sorted.slice(0, 10);
+  const recent = sorted.slice(0, MOOD_TABLE_LIMIT);
+  // The footer promises "verify against source data", so any truncation
+  // must be visible to the clinician, not silent.
+  const truncationNote =
+    sorted.length > MOOD_TABLE_LIMIT
+      ? `<div class="empty-row">Showing the ${MOOD_TABLE_LIMIT} most recent of ${sorted.length} entries in this window.</div>`
+      : "";
   return `<table>
     <thead>
       <tr><th>Date</th><th>Mood</th><th>Note</th></tr>
@@ -297,7 +290,7 @@ function renderMoodTable(rows: MoodRow[]): string {
         })
         .join("")}
     </tbody>
-  </table>`;
+  </table>${truncationNote}`;
 }
 
 function prettySource(source: string): string {

@@ -31,6 +31,10 @@ import { supabase } from "@/services/supabase";
 import { ChatMessage } from "@/types";
 import { colors, radius, spacing, typography } from "@/theme";
 
+// Prior turns sent to the model per request; older context matters less
+// than keeping the payload bounded.
+const MAX_HISTORY_MESSAGES = 20;
+
 const WELCOME_MESSAGE: ChatMessage = {
   id: "welcome",
   userId: "system",
@@ -95,7 +99,10 @@ export default function ChatbotScreen() {
       content: text,
       createdAt: now,
     };
-    const historyForAi = [...messages];
+    // Cap the context window: the reply is limited to ~220 tokens, but an
+    // uncapped history grew the payload linearly until it hit the
+    // deployment's context limit mid-conversation.
+    const historyForAi = messages.slice(-MAX_HISTORY_MESSAGES);
     setMessages((prev) => [...prev, userMessage]);
 
     // Persist the user message; don't block the model call on this.
@@ -131,7 +138,6 @@ export default function ChatbotScreen() {
           if (error) console.warn("[chatbot] persist reply failed:", error);
         });
     } catch (err) {
-      const message = (err as Error)?.message ?? String(err);
       console.warn("[chatbot] gemini call failed:", err);
       setMessages((prev) => [
         ...prev,
@@ -139,9 +145,10 @@ export default function ChatbotScreen() {
           id: `local-${Date.now() + 2}`,
           userId: user.id,
           role: "assistant",
-          // Surface the real error in-app temporarily so we can debug
-          // model / key / quota issues without diving into metro logs.
-          content: `⚠️ Gemini error: ${message}\n\n(This message is shown for debugging — will become a friendly fallback once the API is verified.)`,
+          // Raw provider errors (endpoint, deployment, quota JSON) belong in
+          // the console, not in a patient-facing chat bubble.
+          content:
+            "Sorry — I couldn't respond just now. Please check your connection and try again in a moment.",
           createdAt: new Date().toISOString(),
         },
       ]);

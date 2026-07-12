@@ -3,8 +3,9 @@
  * no decisions.
  */
 
-import { Linking, StyleSheet } from "react-native";
+import { StyleSheet } from "react-native";
 import { router } from "expo-router";
+import { callOb, openNearestErDirections, openUrlSafely } from "@/lib/linking";
 import { Body } from "@/components/ui/Body";
 import { Button } from "@/components/ui/Button";
 import { Heading } from "@/components/ui/Heading";
@@ -17,21 +18,17 @@ export default function EmergencyScreen() {
       <Heading level={2}>Emergency actions</Heading>
       <Body tone="muted">Pick whichever you need right now.</Body>
 
-      <Button label="Call 911" onPress={() => Linking.openURL("tel:911")} />
-      <Button
-        label="Call my OB"
-        variant="secondary"
-        onPress={() => Linking.openURL("tel:")}
-      />
+      <Button label="Call 911" onPress={() => void openUrlSafely("tel:911")} />
+      <Button label="Call my OB" variant="secondary" onPress={() => callOb()} />
       <Button
         label="Directions to nearest ER"
         variant="secondary"
-        onPress={() => Linking.openURL("https://maps.apple.com/?q=emergency+room")}
+        onPress={() => openNearestErDirections()}
       />
       <Button
         label="Text a trusted person"
         variant="secondary"
-        onPress={() => Linking.openURL("sms:")}
+        onPress={() => void openUrlSafely("sms:", "Couldn't open messages.")}
       />
 
       <Button label="Back" variant="ghost" onPress={() => router.back()} />

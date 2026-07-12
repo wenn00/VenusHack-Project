@@ -44,12 +44,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      console.log("[auth] initial session:", data.session ? data.session.user.id : "(none)");
-      setSession(data.session);
-      setIsLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!mounted) return;
+        console.log("[auth] initial session:", data.session ? data.session.user.id : "(none)");
+        setSession(data.session);
+      })
+      .catch((err) => {
+        // e.g. AsyncStorage read failure — treat as signed out rather than
+        // leaving isLoading stuck true, which froze RootGate's entire
+        // gating logic for the session.
+        console.warn("[auth] getSession failed:", err);
+      })
+      .finally(() => {
+        if (mounted) setIsLoading(false);
+      });
 
     const { data: subscription } = supabase.auth.onAuthStateChange((event, newSession) => {
       console.log("[auth] state change:", event, newSession ? newSession.user.id : "(none)");
@@ -68,9 +78,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: session?.user ?? null,
       isLoading,
       signInAnonymous: async () => {
-        console.log("[auth] calling supabase.auth.signInAnonymously()...");
-        const { data, error } = await supabase.auth.signInAnonymously();
-        console.log("[auth] result:", { data, error });
+        // Never log the result object: it contains the session's access and
+        // refresh tokens, which would land in device logs.
+        const { error } = await supabase.auth.signInAnonymously();
+        console.log("[auth] anonymous sign-in:", error ? error.message : "ok");
         if (error) throw error;
       },
       signInWithOtp: async (
@@ -93,7 +104,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error) throw error;
       },
       signOut: async () => {
-        await supabase.auth.signOut();
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
       },
     }),
     [session, isLoading],

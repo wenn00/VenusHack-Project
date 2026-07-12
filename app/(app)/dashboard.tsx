@@ -3,11 +3,18 @@ import { Platform, Pressable, StyleSheet, Text, View, ViewStyle } from "react-na
 import Svg, { Circle, Line, Path, Rect } from "react-native-svg";
 import { Screen } from "@/components/ui/Screen";
 import { useUserData } from "@/contexts/UserDataContext";
+import { getPregnancyWeeks } from "@/lib/pregnancy";
 import { colors, spacing, typography } from "@/theme";
 
 export default function DashboardScreen() {
-  const { profile } = useUserData();
-  const firstName = profile?.fullName?.split(" ")[0] || "Sahana";
+  const { profile, kpinLevel, baselineEvaluation } = useUserData();
+  const firstName = profile?.fullName?.split(" ")[0];
+  const riskColor =
+    kpinLevel === "red"
+      ? colors.status.red
+      : kpinLevel === "yellow"
+        ? colors.status.yellow
+        : colors.status.green;
   const weeks = getPregnancyWeeks(profile?.dueDate);
   const today = new Date().toLocaleDateString("en-US", {
     month: "long",
@@ -18,7 +25,8 @@ export default function DashboardScreen() {
   return (
     <Screen contentStyle={styles.screen} fixedOverlay={<StickyLogoHeader />}>
       <Text style={styles.greeting}>
-        {getDayGreeting()}, {firstName}.{"\n"}We're here whenever{"\n"}you're ready.
+        {getDayGreeting()}
+        {firstName ? `, ${firstName}` : ""}.{"\n"}We're here whenever{"\n"}you're ready.
       </Text>
 
       <View style={styles.datePill}>
@@ -29,12 +37,27 @@ export default function DashboardScreen() {
         <Text style={styles.sectionTitle}>Your condition</Text>
         <View style={styles.conditionCard}>
           <View>
-            <Text style={styles.weekNumber}>{weeks}</Text>
-            <Text style={styles.weekLabel}>weeks</Text>
+            <Text style={styles.weekNumber}>{weeks ?? "—"}</Text>
+            <Text style={styles.weekLabel}>
+              {weeks === null ? "add your due date to track progress" : "weeks"}
+            </Text>
           </View>
           <PregnancyIllustration />
         </View>
       </View>
+
+      {baselineEvaluation && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Risk status</Text>
+          <View style={styles.riskCard}>
+            <View style={[styles.riskDot, { backgroundColor: riskColor }]} />
+            <View style={styles.riskText}>
+              <Text style={styles.riskMessage}>{baselineEvaluation.message}</Text>
+              <Text style={styles.riskDetail}>{baselineEvaluation.detail}</Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       <View style={styles.actionRow}>
         <HomeActionCard
@@ -104,17 +127,6 @@ function PregnancyIllustration() {
       <Path d="M194 111 L207 104 L214 111" stroke="white" strokeWidth={2} fill="none" />
     </Svg>
   );
-}
-
-function getPregnancyWeeks(dueDate: string | null | undefined): number {
-  if (!dueDate) return 16;
-
-  const due = new Date(dueDate);
-  if (Number.isNaN(due.getTime())) return 16;
-
-  const daysUntilDue = (due.getTime() - Date.now()) / (24 * 60 * 60 * 1000);
-  const weeks = Math.round(40 - daysUntilDue / 7);
-  return Math.min(40, Math.max(1, weeks));
 }
 
 function getDayGreeting(): string {
@@ -219,6 +231,39 @@ const styles = StyleSheet.create({
   illustration: {
     marginRight: -12,
     marginBottom: -10,
+  },
+  riskCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border.strong,
+    backgroundColor: colors.bg.card,
+    paddingHorizontal: 22,
+    paddingVertical: 18,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 14,
+  },
+  riskDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginTop: 6,
+  },
+  riskText: {
+    flex: 1,
+    gap: 4,
+  },
+  riskMessage: {
+    color: colors.fg.primary,
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "600",
+  },
+  riskDetail: {
+    color: colors.fg.primary,
+    opacity: 0.75,
+    fontSize: 14,
+    lineHeight: 20,
   },
   actionRow: {
     marginTop: 18,

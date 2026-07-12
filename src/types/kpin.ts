@@ -14,6 +14,12 @@ export type KpinTriggerSource =
   | "symptom_vision_changes"
   | "symptom_shortness_of_breath"
   | "symptom_swelling_severe"
+  | "symptom_abdominal_pain_severe"
+  | "symptom_decreased_fetal_movement"
+  | "history_preeclampsia"
+  | "history_complication"
+  | "family_history_risk"
+  | "postpartum_monitoring"
   | "voice_journal_concern"
   | "rppg_concern";
 

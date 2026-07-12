@@ -27,13 +27,27 @@ export default function IntakeFamilyScreen() {
 
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.from("family_history").insert({
+      const row = {
         user_id: user.id,
         has_cvd_family: hasCvdFamily,
         has_stroke_family: hasStrokeFamily,
         has_diabetes_family: hasDiabetesFamily,
         has_hypertension_family: hasHypertensionFamily,
-      });
+      };
+
+      // Update-or-insert: re-submitting must not accumulate duplicate rows.
+      const { data: existing, error: lookupError } = await supabase
+        .from("family_history")
+        .select("id")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (lookupError) throw lookupError;
+
+      const { error } = existing
+        ? await supabase.from("family_history").update(row).eq("id", existing.id)
+        : await supabase.from("family_history").insert(row);
 
       if (error) throw error;
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
+import { isAuthApiError } from "@supabase/supabase-js";
 import { router } from "expo-router";
 import { Body } from "@/components/ui/Body";
 import { Button } from "@/components/ui/Button";
@@ -35,14 +36,19 @@ export default function LoginScreen() {
       Alert.alert("Code Sent", "Please check your email for the verification code.");
     } catch (err) {
       console.error("[login] error:", err);
-      const message = (err as Error).message ?? "";
-      if (/signup|not allowed|otp_disabled|not found/i.test(message)) {
+      // Only auth-API errors can mean "email not registered" — a broad
+      // message regex previously misrouted unrelated failures (rate
+      // limits, proxy error bodies) to the signup screen.
+      const isUnregistered =
+        isAuthApiError(err) &&
+        (err.code === "otp_disabled" || /signups? not allowed/i.test(err.message));
+      if (isUnregistered) {
         router.replace({
           pathname: "/(auth)/signup",
           params: { email: normalizedEmail },
         });
       } else {
-        Alert.alert("Login Failed", message);
+        Alert.alert("Login Failed", (err as Error).message ?? "Unknown error");
       }
     } finally {
       setIsBusy(false);
@@ -57,7 +63,9 @@ export default function LoginScreen() {
 
     setIsBusy(true);
     try {
-      await verifyOtp(email.toLowerCase(), otp);
+      // Must match the normalization used when the OTP was requested in
+      // handleSendOtp — mobile keyboards commonly append a trailing space.
+      await verifyOtp(email.trim().toLowerCase(), otp.trim());
       // RootGate does not auto-redirect away from the login screen, so
       // navigate explicitly once verifyOtp has set the session.
       router.replace("/(app)/dashboard");
@@ -143,12 +151,14 @@ export default function LoginScreen() {
         onPress={() => router.push("/(auth)/signup")}
         disabled={isBusy}
       />
-      <Button
-        label="Skip for now (dev)"
-        variant="ghost"
-        onPress={handleDevSkip}
-        disabled={isBusy}
-      />
+      {__DEV__ && (
+        <Button
+          label="Skip for now (dev)"
+          variant="ghost"
+          onPress={handleDevSkip}
+          disabled={isBusy}
+        />
+      )}
     </Screen>
   );
 }

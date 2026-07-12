@@ -44,17 +44,50 @@ FOREHEAD_LANDMARKS = [10, 67, 109, 338, 297]
 LEFT_CHEEK_LANDMARKS = [50, 101, 119, 117]
 RIGHT_CHEEK_LANDMARKS = [280, 330, 348, 346]
 
-_face_mesh = mp.solutions.face_mesh.FaceMesh(
-    static_image_mode=False, max_num_faces=1, refine_landmarks=False
-)
+# NOTE: FaceMesh is created per video (see _extract_face_rgb). A module-level
+# instance in tracking mode (static_image_mode=False) carries landmark state
+# from one request's last frame into the next request's first frames, and the
+# solution object is not thread-safe — which matters now that main.py runs
+# processing in a worker thread.
+
+
+# Above this ratio of frames without a face detection, the reconstructed
+# signal is too gappy to trust — interpolation would invent the waveform.
+MAX_DROP_RATIO = 0.3
 
 
 def process_video(path: str) -> dict[str, object]:
-    rgb_signals, fps = _extract_face_rgb(path)
+    rgb_signals, timestamps, fps, total_frames = _extract_face_rgb(path)
+    return _analyze_signals(rgb_signals, timestamps, fps, total_frames)
+
+
+def _analyze_signals(
+    rgb_signals: np.ndarray,
+    timestamps: np.ndarray,
+    fps: float,
+    total_frames: int,
+) -> dict[str, object]:
+    """Turn per-frame ROI means (with their capture timestamps) into a result.
+
+    Frames without a face detection are missing from `rgb_signals`. Treating
+    the remainder as uniformly sampled compresses the time axis and inflates
+    BPM by 1/(1 - drop_ratio), so the signal is first resampled onto a
+    uniform grid using the real timestamps, and clips with too many dropped
+    frames are rejected outright.
+    """
     if len(rgb_signals) < 100:
         raise RppgError("FACE_NOT_DETECTED", "Couldn't reliably track a face in the video.")
 
-    rppg_signal = _pos_algorithm(rgb_signals, fps)
+    drop_ratio = 1.0 - len(rgb_signals) / total_frames if total_frames > 0 else 0.0
+    if drop_ratio > MAX_DROP_RATIO:
+        raise RppgError(
+            "LOW_QUALITY_VIDEO",
+            "Face tracking dropped out too often. Try again in brighter, more even light.",
+        )
+
+    uniform = _resample_uniform(rgb_signals, timestamps, fps)
+
+    rppg_signal = _pos_algorithm(uniform, fps)
     rppg_filtered = _bandpass(rppg_signal, low=0.7, high=4.0, fs=fps)
 
     bpm, snr = _estimate_bpm(rppg_filtered, fps)
@@ -66,36 +99,63 @@ def process_video(path: str) -> dict[str, object]:
         "bpm": int(round(bpm)),
         "hrv_ms": int(hrv_ms),
         "confidence": round(confidence, 2),
-        "duration_seconds": round(len(rgb_signals) / fps, 2),
+        "duration_seconds": round(total_frames / fps, 2),
         "frames_analyzed": len(rgb_signals),
     }
+
+
+def _resample_uniform(rgb: np.ndarray, timestamps: np.ndarray, fps: float) -> np.ndarray:
+    """Linearly interpolate the RGB series onto a uniform 1/fps grid."""
+    grid = np.arange(timestamps[0], timestamps[-1], 1.0 / fps)
+    return np.stack(
+        [np.interp(grid, timestamps, rgb[:, ch]) for ch in range(rgb.shape[1])],
+        axis=1,
+    )
 
 
 # ---- private helpers --------------------------------------------------
 
 
-def _extract_face_rgb(path: str) -> Tuple[np.ndarray, float]:
+def _extract_face_rgb(path: str) -> Tuple[np.ndarray, np.ndarray, float, int]:
+    """Returns (rgb_means, timestamps_seconds, fps, total_frames_read).
+
+    Frames without a face detection contribute no sample, but their absence
+    is preserved in the timestamps so downstream resampling can restore a
+    uniform time base.
+    """
     cap = cv2.VideoCapture(path)
     if not cap.isOpened():
         raise RppgError("LOW_QUALITY_VIDEO", "Could not open video.")
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
 
     rgb_signals: list[np.ndarray] = []
-    while True:
-        ok, frame = cap.read()
-        if not ok:
-            break
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        result = _face_mesh.process(rgb)
-        if not result.multi_face_landmarks:
-            continue
-        mask = _build_roi_mask(rgb, result.multi_face_landmarks[0])
-        pixels = rgb[mask]
-        if len(pixels) > 0:
-            rgb_signals.append(pixels.mean(axis=0))
+    timestamps: list[float] = []
+    frame_idx = 0
+    with mp.solutions.face_mesh.FaceMesh(
+        static_image_mode=False, max_num_faces=1, refine_landmarks=False
+    ) as face_mesh:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            frame_idx += 1
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            result = face_mesh.process(rgb)
+            if not result.multi_face_landmarks:
+                continue
+            mask = _build_roi_mask(rgb, result.multi_face_landmarks[0])
+            pixels = rgb[mask]
+            if len(pixels) > 0:
+                rgb_signals.append(pixels.mean(axis=0))
+                timestamps.append((frame_idx - 1) / fps)
     cap.release()
 
-    return np.asarray(rgb_signals, dtype=np.float64), fps
+    return (
+        np.asarray(rgb_signals, dtype=np.float64),
+        np.asarray(timestamps, dtype=np.float64),
+        fps,
+        frame_idx,
+    )
 
 
 def _build_roi_mask(frame: np.ndarray, landmarks) -> np.ndarray:
