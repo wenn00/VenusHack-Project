@@ -5,6 +5,17 @@
 
 import { UserProfile, PregnancyHistory, FamilyHistory, BpReading, MoodEntry } from "@/types";
 
+/**
+ * Substitute a placeholder with a literal value.
+ *
+ * String.replace with a string replacement interprets $-sequences ($`, $',
+ * $&, $$), so user-derived text containing them corrupted the prompt — a
+ * function replacement is applied verbatim.
+ */
+export function fillTemplate(template: string, placeholder: string, value: string): string {
+  return template.replace(placeholder, () => value);
+}
+
 export interface ChatSystemContext {
   profile: UserProfile | null;
   pregnancyHistory: PregnancyHistory | null;

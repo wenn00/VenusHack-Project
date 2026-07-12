@@ -21,6 +21,7 @@ import {
   buildChatSystemPrompt,
   ChatSystemContext,
   DOCTOR_SUMMARY_PROMPT,
+  fillTemplate,
   VOICE_JOURNAL_PROMPT,
 } from "@/lib/prompts";
 import { ChatMessage, VoiceJournalSummary } from "@/types";
@@ -118,7 +119,7 @@ export async function chat(
 }
 
 export async function summarizeVoiceJournal(transcript: string): Promise<VoiceJournalSummary> {
-  const prompt = VOICE_JOURNAL_PROMPT.replace("{transcript}", transcript);
+  const prompt = fillTemplate(VOICE_JOURNAL_PROMPT, "{transcript}", transcript);
   const text = await callZotGpt(
     [{ role: "user", content: prompt }],
     { temperature: 0.3, maxTokens: 1000, jsonResponse: true },
@@ -129,7 +130,7 @@ export async function summarizeVoiceJournal(transcript: string): Promise<VoiceJo
 }
 
 export async function generateDoctorSummary(data: unknown): Promise<DoctorSummary> {
-  const prompt = DOCTOR_SUMMARY_PROMPT.replace("{data_json}", JSON.stringify(data));
+  const prompt = fillTemplate(DOCTOR_SUMMARY_PROMPT, "{data_json}", JSON.stringify(data));
   const text = await callZotGpt(
     [{ role: "user", content: prompt }],
     { temperature: 0.2, maxTokens: 2000, jsonResponse: true },
