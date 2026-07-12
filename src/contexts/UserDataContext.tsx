@@ -13,6 +13,7 @@ import { useAuth } from "./AuthContext";
 import { supabase } from "@/services/supabase";
 import { generateLiveVitals } from "@/lib/mock-data";
 import { seedDemoData } from "@/lib/seed-demo";
+import { shouldSeedDemoData } from "@/lib/seed-policy";
 import { summarizeKpin } from "@/lib/kpin";
 import { evaluateBaselineRisk } from "@/lib/risk-analysis";
 import {
@@ -109,10 +110,10 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
 
       let [profileRes, pregRes, familyRes, bpRes, moodRes] = await fetchAll();
 
-      // A fresh anonymous account has no blood-pressure history. Seed the
-      // demo body data (BP + rPPG vitals) once, then re-fetch so the screens
-      // render with it. Everything else is logged live during the demo.
-      if (!seedAttemptedRef.current && (bpRes.data ?? []).length === 0) {
+      // A fresh ANONYMOUS account gets demo body data (BP + rPPG vitals)
+      // seeded once, then re-fetched so the screens render with it. Real
+      // (email) accounts must never receive fabricated readings.
+      if (!seedAttemptedRef.current && shouldSeedDemoData(user, (bpRes.data ?? []).length)) {
         seedAttemptedRef.current = true;
         await seedDemoData(user.id);
         [profileRes, pregRes, familyRes, bpRes, moodRes] = await fetchAll();
