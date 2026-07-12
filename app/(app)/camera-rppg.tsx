@@ -219,7 +219,11 @@ export default function CameraRppgScreen() {
       const evaluation = evaluateAndDispatchRppg(vitals);
       await refresh();
 
-      if (evaluation.level !== "red") {
+      if (evaluation.level === "yellow") {
+        Alert.alert(evaluation.message, evaluation.detail, [
+          { text: "Got it", onPress: () => router.back() },
+        ]);
+      } else if (evaluation.level !== "red") {
         router.back();
       }
     } catch (err) {

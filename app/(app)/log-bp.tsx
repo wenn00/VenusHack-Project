@@ -102,8 +102,13 @@ export default function LogBpScreen() {
 
       await refresh();
 
-      if (evaluation.level !== "red") {
-        // For red, useKpin already navigated to /alert/red-flag.
+      // For red, useKpin already navigated to /alert/red-flag. Yellow
+      // guidance was previously computed and then silently discarded.
+      if (evaluation.level === "yellow") {
+        Alert.alert(evaluation.message, evaluation.detail, [
+          { text: "Got it", onPress: () => router.back() },
+        ]);
+      } else if (evaluation.level !== "red") {
         router.back();
       }
     } catch (err) {

@@ -6,8 +6,14 @@ import { useUserData } from "@/contexts/UserDataContext";
 import { colors, spacing, typography } from "@/theme";
 
 export default function DashboardScreen() {
-  const { profile } = useUserData();
+  const { profile, kpinLevel, baselineEvaluation } = useUserData();
   const firstName = profile?.fullName?.split(" ")[0] || "Sahana";
+  const riskColor =
+    kpinLevel === "red"
+      ? colors.status.red
+      : kpinLevel === "yellow"
+        ? colors.status.yellow
+        : colors.status.green;
   const weeks = getPregnancyWeeks(profile?.dueDate);
   const today = new Date().toLocaleDateString("en-US", {
     month: "long",
@@ -35,6 +41,19 @@ export default function DashboardScreen() {
           <PregnancyIllustration />
         </View>
       </View>
+
+      {baselineEvaluation && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Risk status</Text>
+          <View style={styles.riskCard}>
+            <View style={[styles.riskDot, { backgroundColor: riskColor }]} />
+            <View style={styles.riskText}>
+              <Text style={styles.riskMessage}>{baselineEvaluation.message}</Text>
+              <Text style={styles.riskDetail}>{baselineEvaluation.detail}</Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       <View style={styles.actionRow}>
         <HomeActionCard
@@ -219,6 +238,39 @@ const styles = StyleSheet.create({
   illustration: {
     marginRight: -12,
     marginBottom: -10,
+  },
+  riskCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border.strong,
+    backgroundColor: colors.bg.card,
+    paddingHorizontal: 22,
+    paddingVertical: 18,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 14,
+  },
+  riskDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginTop: 6,
+  },
+  riskText: {
+    flex: 1,
+    gap: 4,
+  },
+  riskMessage: {
+    color: colors.fg.primary,
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "600",
+  },
+  riskDetail: {
+    color: colors.fg.primary,
+    opacity: 0.75,
+    fontSize: 14,
+    lineHeight: 20,
   },
   actionRow: {
     marginTop: 18,
