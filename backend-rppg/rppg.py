@@ -44,9 +44,11 @@ FOREHEAD_LANDMARKS = [10, 67, 109, 338, 297]
 LEFT_CHEEK_LANDMARKS = [50, 101, 119, 117]
 RIGHT_CHEEK_LANDMARKS = [280, 330, 348, 346]
 
-_face_mesh = mp.solutions.face_mesh.FaceMesh(
-    static_image_mode=False, max_num_faces=1, refine_landmarks=False
-)
+# NOTE: FaceMesh is created per video (see _extract_face_rgb). A module-level
+# instance in tracking mode (static_image_mode=False) carries landmark state
+# from one request's last frame into the next request's first frames, and the
+# solution object is not thread-safe — which matters now that main.py runs
+# processing in a worker thread.
 
 
 # Above this ratio of frames without a face detection, the reconstructed
@@ -129,20 +131,23 @@ def _extract_face_rgb(path: str) -> Tuple[np.ndarray, np.ndarray, float, int]:
     rgb_signals: list[np.ndarray] = []
     timestamps: list[float] = []
     frame_idx = 0
-    while True:
-        ok, frame = cap.read()
-        if not ok:
-            break
-        frame_idx += 1
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        result = _face_mesh.process(rgb)
-        if not result.multi_face_landmarks:
-            continue
-        mask = _build_roi_mask(rgb, result.multi_face_landmarks[0])
-        pixels = rgb[mask]
-        if len(pixels) > 0:
-            rgb_signals.append(pixels.mean(axis=0))
-            timestamps.append((frame_idx - 1) / fps)
+    with mp.solutions.face_mesh.FaceMesh(
+        static_image_mode=False, max_num_faces=1, refine_landmarks=False
+    ) as face_mesh:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                break
+            frame_idx += 1
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            result = face_mesh.process(rgb)
+            if not result.multi_face_landmarks:
+                continue
+            mask = _build_roi_mask(rgb, result.multi_face_landmarks[0])
+            pixels = rgb[mask]
+            if len(pixels) > 0:
+                rgb_signals.append(pixels.mean(axis=0))
+                timestamps.append((frame_idx - 1) / fps)
     cap.release()
 
     return (
