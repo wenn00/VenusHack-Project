@@ -8,7 +8,7 @@ import { colors, spacing, typography } from "@/theme";
 
 export default function DashboardScreen() {
   const { profile, kpinLevel, baselineEvaluation } = useUserData();
-  const firstName = profile?.fullName?.split(" ")[0] || "Sahana";
+  const firstName = profile?.fullName?.split(" ")[0];
   const riskColor =
     kpinLevel === "red"
       ? colors.status.red
@@ -25,7 +25,8 @@ export default function DashboardScreen() {
   return (
     <Screen contentStyle={styles.screen} fixedOverlay={<StickyLogoHeader />}>
       <Text style={styles.greeting}>
-        {getDayGreeting()}, {firstName}.{"\n"}We're here whenever{"\n"}you're ready.
+        {getDayGreeting()}
+        {firstName ? `, ${firstName}` : ""}.{"\n"}We're here whenever{"\n"}you're ready.
       </Text>
 
       <View style={styles.datePill}>

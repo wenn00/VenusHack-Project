@@ -81,8 +81,8 @@ export default function LogBpScreen() {
 
       if (evaluation.level !== "green") {
         // Audit trail for any non-green outcome. Best-effort insert; we
-        // don't block the user if it fails.
-        await supabase
+        // don't block the user on it (fire-and-forget, errors logged).
+        void supabase
           .from("kpin_events")
           .insert({
             user_id: user.id,

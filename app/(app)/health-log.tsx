@@ -112,6 +112,16 @@ export default function HealthLogScreen() {
     monthMood.filter(m => isSameDay(new Date(m.loggedAt), selectedDate)),
   [monthMood, selectedDate]);
 
+  // Day-key sets for the calendar dots: the render loop previously ran
+  // .some(new Date(...)) per entry per cell (~thousands of Date allocations
+  // per render, re-executed on every selection tap).
+  const bpDayKeys = useMemo(
+    () => new Set(monthBp.map(bp => format(new Date(bp.measuredAt), "yyyy-MM-dd"))),
+    [monthBp]);
+  const moodDayKeys = useMemo(
+    () => new Set(monthMood.map(m => format(new Date(m.loggedAt), "yyyy-MM-dd"))),
+    [monthMood]);
+
   useEffect(() => {
     let cancelled = false;
     async function fetchVoiceLogs() {
@@ -168,6 +178,7 @@ export default function HealthLogScreen() {
             const isSelected = isSameDay(day, selectedDate);
             const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
             const today = isToday(day);
+            const dayKey = format(day, "yyyy-MM-dd");
 
             return (
               <TouchableOpacity
@@ -187,8 +198,8 @@ export default function HealthLogScreen() {
                     {format(day, "d")}
                   </Body>
                   <View style={styles.dotsRow}>
-                    {monthBp.some(bp => isSameDay(new Date(bp.measuredAt), day)) && <View style={styles.dot} />}
-                    {monthMood.some(m => isSameDay(new Date(m.loggedAt), day)) && <View style={[styles.dot, { backgroundColor: colors.status.yellow }]} />}
+                    {bpDayKeys.has(dayKey) && <View style={styles.dot} />}
+                    {moodDayKeys.has(dayKey) && <View style={[styles.dot, { backgroundColor: colors.status.yellow }]} />}
                   </View>
                 </View>
               </TouchableOpacity>
@@ -246,7 +257,12 @@ export default function HealthLogScreen() {
       </View>
 
       {/* --- Detail Modal --- */}
-      <Modal visible={!!detailView} animationType="slide" presentationStyle="pageSheet">
+      <Modal
+        visible={!!detailView}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setDetailView(null)}
+      >
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Heading level={2}>{detailView === 'heart' ? 'Vitals' : detailView === 'voice' ? 'Voice Journal' : 'Mood'}</Heading>

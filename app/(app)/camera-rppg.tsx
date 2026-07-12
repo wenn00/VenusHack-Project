@@ -69,7 +69,8 @@ export default function CameraRppgScreen() {
   // The first ping after sleep can take up to ~50 seconds.
   useEffect(() => {
     let cancelled = false;
-    setServerState("warming");
+    // serverState already initializes to "warming"; re-setting it here was
+    // a redundant synchronous setState inside the effect.
     pingRppg()
       .then((ok) => {
         if (cancelled) return;
