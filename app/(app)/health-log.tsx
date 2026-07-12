@@ -9,6 +9,31 @@ import { Screen } from "@/components/ui/Screen";
 import { colors, spacing, radius } from "@/theme";
 import { useUserData } from "@/contexts/UserDataContext";
 import { supabase } from "@/services/supabase";
+import { BpReading, MoodEntry } from "@/types";
+
+// Row mappers (Supabase returns snake_case; the app uses camelCase).
+function mapBpRow(row: any): BpReading {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    systolic: row.systolic,
+    diastolic: row.diastolic,
+    pulse: row.pulse,
+    measuredAt: row.measured_at,
+    source: row.source,
+    notes: row.notes,
+  };
+}
+
+function mapMoodRow(row: any): MoodEntry {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    mood: row.mood,
+    note: row.note,
+    loggedAt: row.logged_at,
+  };
+}
 
 /**
  * Health Log — iOS Calendar Design.
@@ -27,6 +52,12 @@ export default function HealthLogScreen() {
   // Voice logs for the selected day
   const [voiceLogs, setVoiceLogs] = useState<any[]>([]);
 
+  // Calendar data queried for the visible month. The context cache only
+  // holds the most recent 30 BP / 60 mood rows, so driving the calendar
+  // from it made older days with data in the database show "no data".
+  const [monthBp, setMonthBp] = useState<BpReading[]>([]);
+  const [monthMood, setMonthMood] = useState<MoodEntry[]>([]);
+
   // --- Calendar Logic ---
   const daysInMonth = useMemo(() => {
     const start = startOfWeek(startOfMonth(currentMonth));
@@ -34,17 +65,52 @@ export default function HealthLogScreen() {
     return eachDayOfInterval({ start, end });
   }, [currentMonth]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchMonthData() {
+      const start = startOfWeek(startOfMonth(currentMonth));
+      const end = endOfWeek(endOfMonth(currentMonth));
+      const [bpRes, moodRes] = await Promise.all([
+        supabase
+          .from("bp_readings")
+          .select("*")
+          .gte("measured_at", start.toISOString())
+          .lte("measured_at", end.toISOString())
+          .order("measured_at", { ascending: false }),
+        supabase
+          .from("mood_entries")
+          .select("*")
+          .gte("logged_at", start.toISOString())
+          .lte("logged_at", end.toISOString())
+          .order("logged_at", { ascending: false }),
+      ]);
+      if (cancelled) return;
+      if (bpRes.error || moodRes.error) {
+        console.warn("[health-log] month fetch failed:", bpRes.error ?? moodRes.error);
+        return;
+      }
+      setMonthBp((bpRes.data ?? []).map(mapBpRow));
+      setMonthMood((moodRes.data ?? []).map(mapMoodRow));
+    }
+    fetchMonthData();
+    return () => {
+      cancelled = true;
+    };
+    // recentBp/recentMood are refreshed after every new log, so depending on
+    // them keeps the calendar in sync without a manual reload.
+  }, [currentMonth, recentBp, recentMood]);
+
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
   // --- Data Filtering ---
   const dayBp = useMemo(() =>
-    recentBp.filter(bp => isSameDay(new Date(bp.measuredAt), selectedDate)),
-  [recentBp, selectedDate]);
+    monthBp.filter(bp => isSameDay(new Date(bp.measuredAt), selectedDate)),
+  [monthBp, selectedDate]);
 
   const dayMood = useMemo(() =>
-    recentMood.filter(m => isSameDay(new Date(m.loggedAt), selectedDate)),
-  [recentMood, selectedDate]);
+    monthMood.filter(m => isSameDay(new Date(m.loggedAt), selectedDate)),
+  [monthMood, selectedDate]);
 
   useEffect(() => {
     async function fetchVoiceLogs() {
@@ -110,8 +176,8 @@ export default function HealthLogScreen() {
                     {format(day, "d")}
                   </Body>
                   <View style={styles.dotsRow}>
-                    {recentBp.some(bp => isSameDay(new Date(bp.measuredAt), day)) && <View style={styles.dot} />}
-                    {recentMood.some(m => isSameDay(new Date(m.loggedAt), day)) && <View style={[styles.dot, { backgroundColor: colors.status.yellow }]} />}
+                    {monthBp.some(bp => isSameDay(new Date(bp.measuredAt), day)) && <View style={styles.dot} />}
+                    {monthMood.some(m => isSameDay(new Date(m.loggedAt), day)) && <View style={[styles.dot, { backgroundColor: colors.status.yellow }]} />}
                   </View>
                 </View>
               </TouchableOpacity>
