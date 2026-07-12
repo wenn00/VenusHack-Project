@@ -57,7 +57,9 @@ export default function LoginScreen() {
 
     setIsBusy(true);
     try {
-      await verifyOtp(email.toLowerCase(), otp);
+      // Must match the normalization used when the OTP was requested in
+      // handleSendOtp — mobile keyboards commonly append a trailing space.
+      await verifyOtp(email.trim().toLowerCase(), otp.trim());
       // RootGate does not auto-redirect away from the login screen, so
       // navigate explicitly once verifyOtp has set the session.
       router.replace("/(app)/dashboard");
