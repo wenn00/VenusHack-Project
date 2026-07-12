@@ -7,6 +7,7 @@ import { Screen } from "@/components/ui/Screen";
 import { TextField } from "@/components/ui/TextField";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
+import { isValidDateOfBirth } from "@/lib/dob";
 import { supabase } from "@/services/supabase";
 import { spacing, typography } from "@/theme";
 
@@ -38,6 +39,10 @@ export default function SignupScreen() {
 
     if (!normalizedEmail || !firstName.trim() || !lastName.trim() || !dateOfBirth.trim()) {
       Alert.alert("Error", "Please fill in all fields.");
+      return;
+    }
+    if (!isValidDateOfBirth(dateOfBirth)) {
+      Alert.alert("Check date of birth", "Please enter your date of birth as MM/DD/YYYY.");
       return;
     }
 
