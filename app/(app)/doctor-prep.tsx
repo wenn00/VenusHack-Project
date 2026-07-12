@@ -293,6 +293,17 @@ async function gatherThirtyDayData(userId: string): Promise<GatheredData> {
       .maybeSingle(),
   ]);
 
+  // supabase-js reports failures via the error field without throwing.
+  // A summary silently built on missing data would tell the clinician
+  // "no readings recorded" — fail loudly instead and let the error screen
+  // offer a retry.
+  const queries = { bp, vitals, mood, voice, symptoms, chat, profile, pregnancy, family };
+  for (const [name, res] of Object.entries(queries)) {
+    if (res.error) {
+      throw new Error(`Couldn't load your ${name} data (${res.error.message}). Please try again.`);
+    }
+  }
+
   const bpRows: BpRow[] = (bp.data ?? []).map((r: any) => ({
     measuredAt: r.measured_at,
     systolic: r.systolic,
