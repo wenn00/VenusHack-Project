@@ -5,8 +5,9 @@
  * Tone: warm, never panicky. Three clear next-step buttons.
  */
 
-import { Linking, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import { callOb } from "@/lib/linking";
 import { Body } from "@/components/ui/Body";
 import { Button } from "@/components/ui/Button";
 import { Heading } from "@/components/ui/Heading";
@@ -32,7 +33,7 @@ export default function RedFlagScreen() {
       </Body>
 
       <View style={styles.actions}>
-        <Button label="Call my OB" onPress={() => Linking.openURL("tel:")} />
+        <Button label="Call my OB" onPress={() => callOb()} />
         <Button
           label="Go to ER"
           variant="secondary"
