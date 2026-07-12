@@ -68,9 +68,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: session?.user ?? null,
       isLoading,
       signInAnonymous: async () => {
-        console.log("[auth] calling supabase.auth.signInAnonymously()...");
-        const { data, error } = await supabase.auth.signInAnonymously();
-        console.log("[auth] result:", { data, error });
+        // Never log the result object: it contains the session's access and
+        // refresh tokens, which would land in device logs.
+        const { error } = await supabase.auth.signInAnonymously();
+        console.log("[auth] anonymous sign-in:", error ? error.message : "ok");
         if (error) throw error;
       },
       signInWithOtp: async (
