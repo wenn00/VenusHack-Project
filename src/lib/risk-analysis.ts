@@ -3,7 +3,8 @@ import {
   PregnancyHistory,
   FamilyHistory,
   KpinEvaluation,
-  KpinLevel
+  KpinLevel,
+  KpinTriggerSource,
 } from "@/types";
 
 /**
@@ -15,7 +16,7 @@ export function evaluateBaselineRisk(
   pregHistory: PregnancyHistory | null,
   familyHistory: FamilyHistory | null
 ): KpinEvaluation {
-  const triggers: any[] = [];
+  const triggers: KpinTriggerSource[] = [];
   let level: KpinLevel = "green";
   let message = "Your baseline risk is normal.";
   let detail = "Based on your history, you are at standard risk. Keep tracking your vitals regularly.";
@@ -33,6 +34,7 @@ export function evaluateBaselineRisk(
       pregHistory.hadPretermBirth
     ) {
       level = "yellow";
+      triggers.push("history_complication");
       message = "Elevated baseline risk.";
       detail = "Your history of pregnancy complications means we should be extra vigilant with your tracking.";
     }
@@ -42,6 +44,7 @@ export function evaluateBaselineRisk(
   if (profile?.stage === "postpartum" && level !== "red") {
     // Postpartum is a high-risk period for cardiovascular events
     level = "yellow";
+    triggers.push("postpartum_monitoring");
     message = "Postpartum monitoring active.";
     detail = "The postpartum period requires close heart health monitoring. Ensure you log your BP daily.";
   }
@@ -54,6 +57,7 @@ export function evaluateBaselineRisk(
       familyHistory.hasStrokeFamily
     ) {
       level = "yellow";
+      triggers.push("family_history_risk");
       message = "Family history factor.";
       detail = "Your family history of heart conditions puts you in an elevated monitoring group.";
     }
