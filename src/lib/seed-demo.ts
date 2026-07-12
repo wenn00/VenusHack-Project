@@ -24,22 +24,6 @@ function daysAgo(n: number, hour = 9): string {
 }
 
 /**
- * True when the user has no blood-pressure history yet — our signal that a
- * fresh anonymous account still needs demo body data.
- */
-export async function isDemoDataNeeded(userId: string): Promise<boolean> {
-  const { count, error } = await supabase
-    .from("bp_readings")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId);
-  if (error) {
-    console.warn("[seed-demo] emptiness check failed:", error.message);
-    return false;
-  }
-  return (count ?? 0) === 0;
-}
-
-/**
  * Blood-pressure trend: 14 readings across 28 days, climbing from a healthy
  * 118/76 into the red range (>=140 systolic). Day offsets are spaced ~2 days
  * apart so the dashboard chart reads as a steady, worsening trend ending in a
