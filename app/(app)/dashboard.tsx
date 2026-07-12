@@ -3,6 +3,7 @@ import { Platform, Pressable, StyleSheet, Text, View, ViewStyle } from "react-na
 import Svg, { Circle, Line, Path, Rect } from "react-native-svg";
 import { Screen } from "@/components/ui/Screen";
 import { useUserData } from "@/contexts/UserDataContext";
+import { getPregnancyWeeks } from "@/lib/pregnancy";
 import { colors, spacing, typography } from "@/theme";
 
 export default function DashboardScreen() {
@@ -35,8 +36,10 @@ export default function DashboardScreen() {
         <Text style={styles.sectionTitle}>Your condition</Text>
         <View style={styles.conditionCard}>
           <View>
-            <Text style={styles.weekNumber}>{weeks}</Text>
-            <Text style={styles.weekLabel}>weeks</Text>
+            <Text style={styles.weekNumber}>{weeks ?? "—"}</Text>
+            <Text style={styles.weekLabel}>
+              {weeks === null ? "add your due date to track progress" : "weeks"}
+            </Text>
           </View>
           <PregnancyIllustration />
         </View>
@@ -123,17 +126,6 @@ function PregnancyIllustration() {
       <Path d="M194 111 L207 104 L214 111" stroke="white" strokeWidth={2} fill="none" />
     </Svg>
   );
-}
-
-function getPregnancyWeeks(dueDate: string | null | undefined): number {
-  if (!dueDate) return 16;
-
-  const due = new Date(dueDate);
-  if (Number.isNaN(due.getTime())) return 16;
-
-  const daysUntilDue = (due.getTime() - Date.now()) / (24 * 60 * 60 * 1000);
-  const weeks = Math.round(40 - daysUntilDue / 7);
-  return Math.min(40, Math.max(1, weeks));
 }
 
 function getDayGreeting(): string {
