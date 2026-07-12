@@ -44,12 +44,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      console.log("[auth] initial session:", data.session ? data.session.user.id : "(none)");
-      setSession(data.session);
-      setIsLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!mounted) return;
+        console.log("[auth] initial session:", data.session ? data.session.user.id : "(none)");
+        setSession(data.session);
+      })
+      .catch((err) => {
+        // e.g. AsyncStorage read failure — treat as signed out rather than
+        // leaving isLoading stuck true, which froze RootGate's entire
+        // gating logic for the session.
+        console.warn("[auth] getSession failed:", err);
+      })
+      .finally(() => {
+        if (mounted) setIsLoading(false);
+      });
 
     const { data: subscription } = supabase.auth.onAuthStateChange((event, newSession) => {
       console.log("[auth] state change:", event, newSession ? newSession.user.id : "(none)");
