@@ -113,21 +113,32 @@ export default function HealthLogScreen() {
   [monthMood, selectedDate]);
 
   useEffect(() => {
+    let cancelled = false;
     async function fetchVoiceLogs() {
       const start = new Date(selectedDate);
       start.setHours(0, 0, 0, 0);
       const end = new Date(selectedDate);
       end.setHours(23, 59, 59, 999);
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("voice_journal_entries")
         .select("*")
         .gte("recorded_at", start.toISOString())
         .lte("recorded_at", end.toISOString());
 
-      setVoiceLogs(data || []);
+      // Tapping day A then quickly day B could let A's slower response
+      // resolve last and display A's entries under B's date.
+      if (cancelled) return;
+      if (error) {
+        console.warn("[health-log] voice logs fetch failed:", error);
+        return;
+      }
+      setVoiceLogs(data ?? []);
     }
     fetchVoiceLogs();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedDate]);
 
   return (
