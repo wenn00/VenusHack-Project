@@ -1,5 +1,5 @@
 /**
- * AI service (powered by ZotGPT — UCI's Azure OpenAI proxy).
+ * AI service (powered by ZotGPT — UCI's Portkey gateway in front of Azure OpenAI).
  *
  * The file is still named `gemini.ts` for backwards compatibility with
  * existing imports. The exported interface is identical:
@@ -7,9 +7,9 @@
  *   - summarizeVoiceJournal(): turn a transcript into structured JSON
  *   - generateDoctorSummary(): build a clinician-ready 30-day summary
  *
- * Uses the Azure OpenAI Chat Completions REST API directly (no SDK).
- * Plain fetch keeps the bundle small and avoids the openai package's
- * Node.js assumptions that break in React Native.
+ * Uses the gateway's OpenAI-compatible Chat Completions REST API directly
+ * (no SDK). Plain fetch keeps the bundle small and avoids the openai
+ * package's Node.js assumptions that break in React Native.
  */
 
 import {
@@ -30,8 +30,8 @@ export type { DoctorSummary } from "@/lib/ai-normalize";
 
 const apiKey = process.env.EXPO_PUBLIC_ZOTGPT_API_KEY;
 const endpoint = process.env.EXPO_PUBLIC_ZOTGPT_ENDPOINT;
+// Gateway model slug, e.g. "@zotgpt-api-azure/gpt-4o".
 const deployment = process.env.EXPO_PUBLIC_ZOTGPT_DEPLOYMENT;
-const apiVersion = process.env.EXPO_PUBLIC_ZOTGPT_API_VERSION ?? "2024-10-21";
 
 if (!apiKey || !endpoint || !deployment) {
   console.warn(
@@ -61,9 +61,10 @@ async function callZotGpt(
     );
   }
 
-  const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
+  const url = `${endpoint.replace(/\/+$/, "")}/chat/completions`;
 
   const body: Record<string, unknown> = {
+    model: deployment,
     messages,
     temperature: options.temperature ?? 0.7,
     // Newer Azure OpenAI deployments (GPT-4o, o-series, etc.) require
@@ -77,7 +78,7 @@ async function callZotGpt(
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      "api-key": apiKey,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
