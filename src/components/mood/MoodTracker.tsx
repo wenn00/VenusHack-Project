@@ -198,9 +198,9 @@ function MoodOrb({ item, index, size, width, motion, selected, disabled, onSelec
           {/* Both layers fade to transparent: no opaque disk or hard circular edge.
               Keep the layout/hit target fixed while the light breathes around it. */}
           <Animated.View pointerEvents="none" style={[styles.glowLayer, {
-            width: size * 1.9, height: size * 1.9,
-            left: -size * 0.45, top: -size * 0.45,
-            opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.28, 0.64] }),
+            width: size * 1.64, height: size * 1.64,
+            left: -size * 0.32, top: -size * 0.32,
+            opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.22, 0.46] }),
             transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.84, 1.18] }) }],
           }]}>
             <Svg width="100%" height="100%" viewBox="0 0 100 100">
@@ -215,18 +215,18 @@ function MoodOrb({ item, index, size, width, motion, selected, disabled, onSelec
             </Svg>
           </Animated.View>
           <Animated.View pointerEvents="none" style={[styles.glowLayer, {
-            width: size * 1.42, height: size * 1.42,
-            left: -size * 0.21, top: -size * 0.21,
+            width: size * 1.26, height: size * 1.26,
+            left: -size * 0.13, top: -size * 0.13,
             opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.84, 1] }),
             transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1.12] }) }],
           }]}>
             <Svg width="100%" height="100%" viewBox="0 0 100 100">
               <Defs><RadialGradient id={`mood-core-${item.mood}`} cx="50%" cy="50%" r="50%">
                 <Stop offset="0%" stopColor={item.color} stopOpacity="1" />
-                <Stop offset="26%" stopColor={item.color} stopOpacity="0.97" />
-                <Stop offset="46%" stopColor={item.color} stopOpacity="0.83" />
-                <Stop offset="65%" stopColor={item.color} stopOpacity="0.5" />
-                <Stop offset="82%" stopColor={item.color} stopOpacity="0.16" />
+                <Stop offset="42%" stopColor={item.color} stopOpacity="1" />
+                <Stop offset="60%" stopColor={item.color} stopOpacity="0.95" />
+                <Stop offset="74%" stopColor={item.color} stopOpacity="0.7" />
+                <Stop offset="86%" stopColor={item.color} stopOpacity="0.27" />
                 <Stop offset="100%" stopColor={item.color} stopOpacity="0" />
               </RadialGradient></Defs>
               <Rect width="100" height="100" fill={`url(#mood-core-${item.mood})`} />
