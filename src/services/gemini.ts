@@ -1,5 +1,5 @@
 /**
- * AI service (powered by ZotGPT — UCI's Azure OpenAI proxy).
+ * AI service (powered by ZotGPT — UCI's Portkey gateway in front of Azure OpenAI).
  *
  * The file is still named `gemini.ts` for backwards compatibility with
  * existing imports. The exported interface is identical:
@@ -7,10 +7,12 @@
  *   - summarizeVoiceJournal(): turn a transcript into structured JSON
  *   - generateDoctorSummary(): build a clinician-ready 30-day summary
  *
- * Uses the Azure OpenAI Chat Completions REST API directly (no SDK).
- * Plain fetch keeps the bundle small and avoids the openai package's
- * Node.js assumptions that break in React Native.
+ * Requests go through the `ai-chat` Supabase Edge Function
+ * (supabase/functions/ai-chat), which holds the ZotGPT key server-side.
+ * supabase-js attaches the signed-in user's session JWT automatically.
  */
+
+import { FunctionsHttpError } from "@supabase/supabase-js";
 
 import {
   DoctorSummary,
@@ -24,20 +26,20 @@ import {
   fillTemplate,
   VOICE_JOURNAL_PROMPT,
 } from "@/lib/prompts";
+import { supabase } from "@/services/supabase";
 import { ChatMessage, VoiceJournalSummary } from "@/types";
 
 export type { DoctorSummary } from "@/lib/ai-normalize";
 
-const apiKey = process.env.EXPO_PUBLIC_ZOTGPT_API_KEY;
-const endpoint = process.env.EXPO_PUBLIC_ZOTGPT_ENDPOINT;
-const deployment = process.env.EXPO_PUBLIC_ZOTGPT_DEPLOYMENT;
-const apiVersion = process.env.EXPO_PUBLIC_ZOTGPT_API_VERSION ?? "2024-10-21";
-
-if (!apiKey || !endpoint || !deployment) {
-  console.warn(
-    "[ai] Missing ZotGPT config. Set EXPO_PUBLIC_ZOTGPT_API_KEY, " +
-      "EXPO_PUBLIC_ZOTGPT_ENDPOINT, and EXPO_PUBLIC_ZOTGPT_DEPLOYMENT in .env.local.",
-  );
+/**
+ * Thrown when the proxy refuses an anonymous (dev "skip") session. Its
+ * message is safe to show to the user, unlike other AI errors.
+ */
+export class AiAccessError extends Error {
+  constructor() {
+    super("AI features need an email sign-in. Sign out and sign in with your email to use them.");
+    this.name = "AiAccessError";
+  }
 }
 
 interface AzureChatMessage {
@@ -55,45 +57,34 @@ async function callZotGpt(
   messages: AzureChatMessage[],
   options: CallOptions = {},
 ): Promise<string> {
-  if (!apiKey || !endpoint || !deployment) {
-    throw new Error(
-      "ZotGPT is not configured. Add EXPO_PUBLIC_ZOTGPT_* values to .env.local and restart Expo.",
-    );
-  }
-
-  const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
-
-  const body: Record<string, unknown> = {
-    messages,
-    temperature: options.temperature ?? 0.7,
-    // Newer Azure OpenAI deployments (GPT-4o, o-series, etc.) require
-    // `max_completion_tokens` instead of the deprecated `max_tokens`.
-    max_completion_tokens: options.maxTokens ?? 800,
-  };
-  if (options.jsonResponse) {
-    body.response_format = { type: "json_object" };
-  }
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "api-key": apiKey,
-      "Content-Type": "application/json",
+  const { data, error } = await supabase.functions.invoke<{ content?: unknown }>("ai-chat", {
+    body: {
+      messages,
+      temperature: options.temperature ?? 0.7,
+      maxTokens: options.maxTokens ?? 800,
+      jsonResponse: options.jsonResponse ?? false,
     },
-    body: JSON.stringify(body),
   });
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`ZotGPT ${response.status}: ${text || response.statusText}`);
+  if (error) {
+    let code = "unknown_error";
+    if (error instanceof FunctionsHttpError) {
+      const payload = await error.context.json().catch(() => null);
+      code = payload?.error?.code ?? `http_${error.context.status}`;
+    }
+    if (code === "anonymous_not_allowed") {
+      throw new AiAccessError();
+    }
+    // Keep the provider/proxy detail in the console; callers may show
+    // the message to patients.
+    console.warn("[ai] ai-chat call failed:", code, error);
+    throw new Error("The AI service couldn't respond right now. Please try again in a moment.");
   }
 
-  const data = await response.json();
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content !== "string") {
-    throw new Error("ZotGPT returned an unexpected response shape");
+  if (typeof data?.content !== "string") {
+    throw new Error("The AI service returned an unexpected response.");
   }
-  return content;
+  return data.content;
 }
 
 // ---- public API -----------------------------------------------------

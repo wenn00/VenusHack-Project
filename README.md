@@ -12,7 +12,8 @@ care into a long-term heart-health intervention.
 - **Mobile**: React Native + Expo (managed workflow), TypeScript, Expo Router
 - **Backend**: Supabase (auth + Postgres + RLS) and a small FastAPI service
   for rPPG video analysis
-- **AI**: Google Gemini 2.0 Flash
+- **AI**: ZotGPT (UCI's Portkey gateway, GPT-4o), called through the
+  `ai-chat` Supabase Edge Function so the key never ships in the app
 
 ## Quick start
 
@@ -38,8 +39,25 @@ Required environment variables (see `.env.example`):
 | --- | --- |
 | `EXPO_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase publishable key |
-| `EXPO_PUBLIC_GEMINI_API_KEY` | Google AI Studio key for Gemini |
 | `EXPO_PUBLIC_RPPG_API_URL` | URL of the deployed FastAPI rPPG service |
+
+## AI proxy (`ai-chat` Edge Function)
+
+Chat, voice journal summaries and the doctor PDF call
+`supabase/functions/ai-chat`, which forwards to ZotGPT with a key stored
+as a Supabase secret. Only signed-in, non-anonymous users may call it, so
+the dev "Skip for now" login can't use AI features — sign in with email.
+
+```bash
+# One-time: store the ZotGPT gateway key (and optionally a model override)
+npx supabase secrets set --project-ref <project-ref> ZOTGPT_API_KEY=<key>
+#   optional: ZOTGPT_MODEL=@zotgpt-api-azure/gpt-4o-mini
+
+# Deploy after changing the function (no Docker needed with --use-api)
+npx supabase functions deploy ai-chat --project-ref <project-ref> --use-api
+```
+
+Type-check the function with `npx deno@2 check --config supabase/functions/ai-chat/deno.json supabase/functions/ai-chat/index.ts`.
 
 ## Project layout
 
@@ -56,6 +74,7 @@ src/
   services/      Supabase, Gemini, rPPG, PDF clients
   theme/         Design tokens
   types/         Shared TypeScript types
+supabase/        Supabase CLI config + the ai-chat Edge Function
 backend-rppg/    Python FastAPI service for rPPG video analysis
 docs/            Planning docs (gitignored)
 ```

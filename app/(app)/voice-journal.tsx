@@ -21,7 +21,7 @@ import { Heading } from "@/components/ui/Heading";
 import { Screen } from "@/components/ui/Screen";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
-import { summarizeVoiceJournal } from "@/services/gemini";
+import { AiAccessError, summarizeVoiceJournal } from "@/services/gemini";
 import { supabase } from "@/services/supabase";
 import { colors, radius, spacing, typography } from "@/theme";
 import { VoiceJournalSummary } from "@/types";
@@ -51,10 +51,14 @@ export default function VoiceJournalScreen() {
     // Try AI summarization first. If Gemini is unavailable we still save
     // the raw transcript so nothing is lost.
     let aiSummary: VoiceJournalSummary | null = null;
+    let aiUnavailableMessage = "Couldn't generate an AI summary right now, but your entry is saved.";
     try {
       aiSummary = await summarizeVoiceJournal(trimmed);
     } catch (err) {
       console.warn("[voice-journal] Gemini summarize failed:", err);
+      if (err instanceof AiAccessError) {
+        aiUnavailableMessage = `Your entry is saved. ${err.message}`;
+      }
     }
 
     try {
@@ -71,7 +75,7 @@ export default function VoiceJournalScreen() {
       if (aiSummary) {
         setSummary(aiSummary);
       } else {
-        Alert.alert("Saved", "Couldn't generate an AI summary right now, but your entry is saved.", [
+        Alert.alert("Saved", aiUnavailableMessage, [
           { text: "OK", onPress: () => router.back() },
         ]);
       }

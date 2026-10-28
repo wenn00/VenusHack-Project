@@ -26,7 +26,7 @@ import { BlueBackground } from "@/components/ui/BlueBackground";
 import { Body } from "@/components/ui/Body";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
-import { chat } from "@/services/gemini";
+import { AiAccessError, chat } from "@/services/gemini";
 import { supabase } from "@/services/supabase";
 import { ChatMessage } from "@/types";
 import { colors, radius, spacing, typography } from "@/theme";
@@ -148,7 +148,9 @@ export default function ChatbotScreen() {
           // Raw provider errors (endpoint, deployment, quota JSON) belong in
           // the console, not in a patient-facing chat bubble.
           content:
-            "Sorry — I couldn't respond just now. Please check your connection and try again in a moment.",
+            err instanceof AiAccessError
+              ? err.message
+              : "Sorry — I couldn't respond just now. Please check your connection and try again in a moment.",
           createdAt: new Date().toISOString(),
         },
       ]);
