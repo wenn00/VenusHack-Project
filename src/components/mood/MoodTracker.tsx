@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AccessibilityInfo,
   Animated,
@@ -75,7 +75,7 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
   const clusterWidth = Math.min(334, Math.max(220, width - 64));
   const orbSize = clusterWidth * (86.4 / 334);
   const option = OPTIONS.find(item => item.mood === selected);
-  const panel = useRef(new Animated.Value(0)).current;
+  const [panel] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const animation = Animated.timing(panel, {
@@ -141,14 +141,14 @@ function MoodOrb({ item, index, size, width, motion, selected, disabled, onSelec
   item: typeof OPTIONS[number]; index: number; size: number; width: number;
   motion: boolean; selected: Mood | null; disabled: boolean; onSelect: () => void;
 }) {
-  const breath = useRef(new Animated.Value(0)).current;
-  const transition = useRef(new Animated.Value(0)).current;
-  const press = useRef(new Animated.Value(1)).current;
-  const lastSelection = useRef<Mood | null>(null);
-  if (selected !== null) lastSelection.current = selected;
+  const [breath] = useState(() => new Animated.Value(0));
+  const [transition] = useState(() => new Animated.Value(0));
+  const [press] = useState(() => new Animated.Value(1));
+  const [lastSelection, setLastSelection] = useState<Mood | null>(null);
+  if (selected !== null && selected !== lastSelection) setLastSelection(selected);
   const chosen = selected === item.mood;
   // Keep the previous endpoints while reversing, so the orb glides home.
-  const wasChosen = lastSelection.current === item.mood;
+  const wasChosen = (selected ?? lastSelection) === item.mood;
   const hidden = selected !== null && !chosen;
   const initialX = item.x * (width - size);
   const initialY = item.y * (width - 20);
