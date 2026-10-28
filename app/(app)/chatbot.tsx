@@ -40,7 +40,8 @@ function ConversationScreen({ userId }: { userId: string }) {
   const draft = drafts[draftKey] ?? "";
   useEffect(() => {
     mounted.current = true;
-    return () => { mounted.current = false; generation.current++; };
+    generation.current++;
+    return () => { mounted.current = false; };
   }, []);
 
   function newConversation() {
@@ -55,7 +56,7 @@ function ConversationScreen({ userId }: { userId: string }) {
     setHistoryOpen(false);
   }
   async function openHistory() {
-    if (busyRef.current) return;
+    if (busyRef.current || loading) return;
     const token = ++generation.current;
     setHistoryOpen(true);
     setHistoryError(null);
@@ -100,7 +101,7 @@ function ConversationScreen({ userId }: { userId: string }) {
     setPending(attempt);
     try {
       if (!attempt.conversationId) {
-        const created = await createConversation(userId, text);
+        const created = await createConversation(userId, text, attempt.requestId);
         attempt.conversationId = created.id;
         if (!mounted.current) return;
         setConversationId(created.id);
@@ -160,7 +161,7 @@ function ConversationScreen({ userId }: { userId: string }) {
       <KeyboardAvoidingView style={styles.page} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <Text style={styles.brand}>Kairos</Text>
         <View style={styles.toolbar}>
-          <Button label="View Chat History" variant="secondary" disabled={busy} onPress={openHistory} />
+          <Button label="View Chat History" variant="secondary" disabled={busy || loading} onPress={openHistory} />
           {(conversationId || messages.length > 0) && <Button label="New chat" variant="ghost" disabled={busy} onPress={newConversation} />}
         </View>
         <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.messages}>

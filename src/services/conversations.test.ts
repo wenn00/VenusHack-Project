@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { conversationTitle, loadConversationMessages, saveConversationMessage } from "./conversations";
+import { createConversation, conversationTitle, loadConversationMessages, saveConversationMessage } from "./conversations";
 const { query, from } = vi.hoisted(() => {
   const query: any = {};
   for (const name of ["select", "eq", "is", "order", "range", "insert", "upsert", "single", "delete"]) query[name] = vi.fn(() => query);
@@ -30,6 +30,11 @@ describe("conversation persistence", () => {
     query.result.data = { id: "m", user_id: "u", role: "user", content: "a", created_at: "1" };
     await saveConversationMessage("u", "c", "user", "a", "request-1");
     expect(query.upsert).toHaveBeenCalledWith(expect.objectContaining({ user_id: "u", conversation_id: "c", client_request_id: "request-1" }), { onConflict: "user_id,client_request_id" });
+  });
+  it("reuses conversation creation request IDs after ambiguous network failures", async () => {
+    query.result.data = { id: "c", title: "Hello", created_at: "1" };
+    await createConversation("u", "Hello", "request-1");
+    expect(query.upsert).toHaveBeenCalledWith({ user_id: "u", title: "Hello", client_request_id: "request-1" }, { onConflict: "user_id,client_request_id" });
   });
   it("caps titles and removes line breaks", () => {
     expect(conversationTitle("  Hello\n world ")).toBe("Hello world");

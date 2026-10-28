@@ -15,9 +15,9 @@ export async function listConversations(userId: string): Promise<Conversation[]>
   if (error) throw error;
   return data ?? [];
 }
-export async function createConversation(userId: string, text: string): Promise<Conversation> {
+export async function createConversation(userId: string, text: string, requestId: string): Promise<Conversation> {
   const { data, error } = await supabase.from("chat_conversations")
-    .insert({ user_id: userId, title: conversationTitle(text) }).select("id,title,created_at").single();
+    .upsert({ user_id: userId, title: conversationTitle(text), client_request_id: requestId }, { onConflict: "user_id,client_request_id" }).select("id,title,created_at").single();
   if (error) throw error;
   return data;
 }
