@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { conversationTitle, loadConversationMessages, saveConversationMessage } from "./conversations";
 const { query, from } = vi.hoisted(() => {
   const query: any = {};
   for (const name of ["select", "eq", "is", "order", "range", "insert", "upsert", "single", "delete"]) query[name] = vi.fn(() => query);
@@ -6,7 +7,6 @@ const { query, from } = vi.hoisted(() => {
   return { query, from: vi.fn(() => query) };
 });
 vi.mock("./supabase", () => ({ supabase: { from } }));
-import { conversationTitle, loadConversationMessages, saveConversationMessage } from "./conversations";
 beforeEach(() => { vi.clearAllMocks(); query.result = { data: [], error: null }; });
 describe("conversation persistence", () => {
   it("loads newest rows before reversing for display and scopes to owner/thread", async () => {

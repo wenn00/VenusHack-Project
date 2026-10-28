@@ -38,7 +38,10 @@ function ConversationScreen({ userId }: { userId: string }) {
   const scroll = useRef<ScrollView>(null);
   const draftKey = conversationId ?? "new";
   const draft = drafts[draftKey] ?? "";
-  useEffect(() => () => { mounted.current = false; generation.current++; }, []);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; generation.current++; };
+  }, []);
 
   function newConversation() {
     if (busyRef.current) return;
@@ -134,6 +137,8 @@ function ConversationScreen({ userId }: { userId: string }) {
   async function confirmDelete() {
     if (!deleteTarget || busyRef.current) return;
     const target = deleteTarget;
+    generation.current++;
+    setLoading(false);
     busyRef.current = true;
     setBusy(true);
     setHistoryError(null);
