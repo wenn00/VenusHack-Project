@@ -6,11 +6,13 @@ import { TextField } from "@/components/ui/TextField";
 import { IntakeAnswers, IntakeQuestion, IntakeSection, validateAnswers } from "@/lib/intake";
 import { colors, typography } from "@/theme";
 
-export function IntakeForm({ sections, initialAnswers, onSave, submitLabel = "Continue" }: {
+export function IntakeForm({ sections, initialAnswers, onSave, submitLabel = "Continue", title = "Onboarding", onCancel }: {
   sections: IntakeSection[];
   initialAnswers: IntakeAnswers;
   onSave: (answers: IntakeAnswers) => Promise<void>;
   submitLabel?: string;
+  title?: string;
+  onCancel?: () => void;
 }) {
   const [answers, setAnswers] = useState(initialAnswers);
   const [step, setStep] = useState(0);
@@ -36,18 +38,19 @@ export function IntakeForm({ sections, initialAnswers, onSave, submitLabel = "Co
     finally { busy.current = false; setSaving(false); }
   }
   return (
-    <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Onboarding</Text>
+    <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, onCancel && styles.editContent]}>
+      <Text style={[styles.title, onCancel && styles.editTitle]}>{title}</Text>
       <Body tone="muted">{section.title}</Body>
-      <View style={styles.progress} accessibilityLabel={`Step ${step + 1} of ${sections.length}`}>
+      {sections.length > 1 && <View style={styles.progress} accessibilityLabel={`Step ${step + 1} of ${sections.length}`}>
         {sections.map((s, i) => <View key={s.title} style={[styles.progressPart, i <= step && styles.progressActive]} />)}
-      </View>
-      <Body size="sm" tone="muted">All questions are optional. Blank or “not sure” answers remain unknown.</Body>
-      <View style={styles.fields}>
+      </View>}
+      <Body size="sm" tone="muted">{onCancel ? "Optional — leave anything you’re unsure about blank." : "All questions are optional. Blank or “not sure” answers remain unknown."}</Body>
+      <View style={[styles.fields, onCancel && styles.editFields]}>
         {section.questions.map(question => <Question key={question.key} question={question} value={answers[question.key] ?? ""} disabled={saving} onChange={value => setAnswers(a => ({ ...a, [question.key]: value }))} />)}
       </View>
       {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
       <Button label={saving ? "Saving…" : step < sections.length - 1 ? "Continue" : submitLabel} onPress={next} disabled={saving} />
+      {onCancel && <Button label="Cancel" variant="ghost" disabled={saving} onPress={onCancel} />}
       {step > 0 && <Button label="Previous" variant="ghost" disabled={saving} onPress={() => { setError(null); setStep(step - 1); scroll.current?.scrollTo({ y: 0, animated: false }); }} />}
     </ScrollView>
   );
@@ -79,6 +82,9 @@ function Question({ question, value, onChange, disabled }: { question: IntakeQue
 }
 const styles = StyleSheet.create({
   content: { paddingTop: 60, paddingHorizontal: 30, paddingBottom: 48, gap: 18 },
+  editContent: { paddingTop: 28, gap: 14 },
+  editTitle: { fontFamily: typography.family.base, fontSize: 28, lineHeight: 36, fontWeight: "600" },
+  editFields: { gap: 20, paddingVertical: 8 },
   title: { color: "white", fontFamily: typography.family.brand, fontSize: 40, lineHeight: 58 },
   fields: { gap: 30, paddingVertical: 16 },
   field: { gap: 6 },

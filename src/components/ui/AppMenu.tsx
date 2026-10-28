@@ -17,7 +17,7 @@ const menuItems: { label: string; icon: IconName; href: string; route: string }[
   { label: "Resources", icon: "bookmark-outline", href: "/(app)/community", route: "community" },
   { label: "History", icon: "time-outline", href: "/(app)/health-log", route: "health-log" },
   { label: "Test Heart Rate", icon: "camera-outline", href: "/(app)/camera-rppg", route: "camera-rppg" },
-  { label: "Update health profile", icon: "person-outline", href: "/(auth)/intake-basic", route: "intake-basic" },
+  { label: "Update health profile", icon: "person-outline", href: "/(app)/health-profile", route: "health-profile" },
   { label: "Homepage", icon: "home-outline", href: "/(app)/dashboard", route: "dashboard" },
 ];
 

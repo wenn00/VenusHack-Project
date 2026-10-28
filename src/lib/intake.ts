@@ -130,7 +130,21 @@ export function readIntakeNotes(notes: string | null | undefined): IntakeNotes |
 }
 export function writeIntakeNotes(stage: PregnancyStage, answers: IntakeAnswers, previous: string | null | undefined): string {
   const prior = readIntakeNotes(previous);
-  return JSON.stringify({ format: "kairos-intake-v1", stage, answers, legacyNote: prior?.legacyNote ?? (!prior && previous ? previous : undefined) } satisfies IntakeNotes);
+  // Preserve versioned metadata when the original onboarding URL is revisited.
+  // The full form still replaces active answers (including explicit blanks).
+  const raw = prior && previous ? JSON.parse(previous) as Record<string, unknown> : {};
+  const archived = raw.stageAnswers && typeof raw.stageAnswers === "object" && !Array.isArray(raw.stageAnswers)
+    ? raw.stageAnswers as Record<string, unknown> : {};
+  const priorStage = typeof raw.stage === "string" ? raw.stage : "unknown";
+  const stageAnswers = prior && priorStage !== stage
+    ? { ...archived, [priorStage]: raw.answers }
+    : archived;
+  return JSON.stringify({
+    ...raw,
+    format: "kairos-intake-v1", stage, answers,
+    ...(Object.keys(stageAnswers).length ? { stageAnswers } : {}),
+    legacyNote: prior?.legacyNote ?? (!prior && previous ? previous : undefined),
+  });
 }
 
 /** Calendar-only dates: no UTC conversion and no normalized invalid dates. */
