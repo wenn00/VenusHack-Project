@@ -4,7 +4,7 @@ export interface Conversation { id: string; title: string; created_at: string }
 export const LEGACY_CONVERSATION = "legacy";
 export const MESSAGE_PAGE_SIZE = 50;
 export function conversationTitle(text: string): string {
-  return text.trim().replace(/\s+/g, " ").slice(0, 100) || "New conversation";
+  return Array.from(text.trim().replace(/\s+/g, " ")).slice(0, 100).join("") || "New conversation";
 }
 export function mapChatMessage(row: any): ChatMessage {
   return { id: row.id, userId: row.user_id, role: row.role, content: row.content, createdAt: row.created_at };

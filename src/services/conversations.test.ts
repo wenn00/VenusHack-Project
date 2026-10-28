@@ -39,5 +39,6 @@ describe("conversation persistence", () => {
   it("caps titles and removes line breaks", () => {
     expect(conversationTitle("  Hello\n world ")).toBe("Hello world");
     expect(conversationTitle("x".repeat(130))).toHaveLength(100);
+    expect(conversationTitle("x".repeat(99) + "😊a")).toBe("x".repeat(99) + "😊");
   });
 });
