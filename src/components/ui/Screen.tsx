@@ -4,7 +4,7 @@
 
 import React from "react";
 import { ScrollView, StyleSheet, View, ViewStyle } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing } from "@/theme";
 import { AppMenuButton } from "./AppMenu";
 import { BlueBackground } from "./BlueBackground";
@@ -17,8 +17,9 @@ interface ScreenProps {
 }
 
 export function Screen({ children, scroll = true, contentStyle, fixedOverlay }: ScreenProps) {
+  const insets = useSafeAreaInsets();
   const Inner = (
-    <View style={[styles.inner, contentStyle]}>{children}</View>
+    <View style={[styles.inner, { paddingBottom: 100 + insets.bottom }, contentStyle]}>{children}</View>
   );
 
   return (
