@@ -6,10 +6,15 @@
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import { useEffect } from "react";
+import { StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { Screen } from "@/components/ui/Screen";
+import { Heading } from "@/components/ui/Heading";
+import { Body } from "@/components/ui/Body";
+import { Button } from "@/components/ui/Button";
 import { UserDataProvider, useUserData } from "@/contexts/UserDataContext";
 
 function RootGate() {
@@ -19,6 +24,8 @@ function RootGate() {
     pregnancyHistory,
     familyHistory,
     isLoading: isUserDataLoading,
+    loadError,
+    refresh,
   } = useUserData();
   const segments = useSegments();
   const routeSegments = segments as readonly string[];
@@ -44,7 +51,7 @@ function RootGate() {
       return;
     }
 
-    if (isAuthEntryPage || isUserDataLoading) return;
+    if (isAuthEntryPage || isUserDataLoading || loadError) return;
 
     if (!profile || !profile.fullName || profile.stage === "not_specified") {
       if (screenName !== "intake-basic") {
@@ -74,6 +81,7 @@ function RootGate() {
     session,
     isAuthLoading,
     isUserDataLoading,
+    loadError,
     routeSegments,
     router,
     profile,
@@ -81,7 +89,14 @@ function RootGate() {
     familyHistory,
   ]);
 
-  return <Slot />;
+  return <>
+    <Slot />
+    {session && loadError && !["login", "signup"].includes(routeSegments[routeSegments.length - 1] ?? "") && (
+      <View style={[StyleSheet.absoluteFillObject, { zIndex: 100, backgroundColor: "#1750AC" }]}>
+        <Screen><Heading level={2}>Couldn’t load your profile</Heading><Body>{loadError}</Body><Button label="Try again" onPress={() => { void refresh(); }} /></Screen>
+      </View>
+    )}
+  </>;
 }
 
 export default function RootLayout() {
