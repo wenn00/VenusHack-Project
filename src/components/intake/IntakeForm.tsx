@@ -38,14 +38,14 @@ export function IntakeForm({ sections, initialAnswers, onSave, submitLabel = "Co
     finally { busy.current = false; setSaving(false); }
   }
   return (
-    <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-      <Text style={styles.title}>{title}</Text>
+    <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, onCancel && styles.editContent]}>
+      <Text style={[styles.title, onCancel && styles.editTitle]}>{title}</Text>
       <Body tone="muted">{section.title}</Body>
       {sections.length > 1 && <View style={styles.progress} accessibilityLabel={`Step ${step + 1} of ${sections.length}`}>
         {sections.map((s, i) => <View key={s.title} style={[styles.progressPart, i <= step && styles.progressActive]} />)}
       </View>}
-      <Body size="sm" tone="muted">All questions are optional. Blank or “not sure” answers remain unknown.</Body>
-      <View style={styles.fields}>
+      <Body size="sm" tone="muted">{onCancel ? "Optional — leave anything you’re unsure about blank." : "All questions are optional. Blank or “not sure” answers remain unknown."}</Body>
+      <View style={[styles.fields, onCancel && styles.editFields]}>
         {section.questions.map(question => <Question key={question.key} question={question} value={answers[question.key] ?? ""} disabled={saving} onChange={value => setAnswers(a => ({ ...a, [question.key]: value }))} />)}
       </View>
       {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
@@ -82,6 +82,9 @@ function Question({ question, value, onChange, disabled }: { question: IntakeQue
 }
 const styles = StyleSheet.create({
   content: { paddingTop: 60, paddingHorizontal: 30, paddingBottom: 48, gap: 18 },
+  editContent: { paddingTop: 28, gap: 14 },
+  editTitle: { fontFamily: typography.family.base, fontSize: 28, lineHeight: 36, fontWeight: "600" },
+  editFields: { gap: 20, paddingVertical: 8 },
   title: { color: "white", fontFamily: typography.family.brand, fontSize: 40, lineHeight: 58 },
   fields: { gap: 30, paddingVertical: 16 },
   field: { gap: 6 },

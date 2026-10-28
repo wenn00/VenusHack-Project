@@ -35,7 +35,7 @@ function HistoryEditor({ userId, stage, section, history, refresh }: {
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   return <Screen scroll={false} contentStyle={{ paddingHorizontal: 0, paddingVertical: 0 }}>
-    <IntakeForm title={section.title} sections={[{ ...section.section, title: 'Update this section only. Your other answers will stay as they are.' }]} initialAnswers={initial} submitLabel="Save changes" onCancel={returnToProfile} onSave={async answers => {
+    <IntakeForm title={section.title} sections={[{ ...section.section, title: 'Save changes to this section.' }]} initialAnswers={initial} submitLabel="Save changes" onCancel={returnToProfile} onSave={async answers => {
       const patch = changedSectionAnswers(section.section, initial, answers);
       if (Object.keys(patch).length) {
         await saveIntakeSection(section.table, userId, stage, patch);
