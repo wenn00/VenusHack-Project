@@ -1,144 +1,31 @@
-import { useState } from "react";
-import { StyleSheet, View, Alert, Switch } from "react-native";
 import { router } from "expo-router";
-import { Body } from "@/components/ui/Body";
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/Card";
-import { Heading } from "@/components/ui/Heading";
 import { Screen } from "@/components/ui/Screen";
+import { IntakeForm } from "@/components/intake/IntakeForm";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
-import { supabase } from "@/services/supabase";
-import { spacing, colors } from "@/theme";
+import { booleanAnswer, pregnancySections, readIntakeNotes } from "@/lib/intake";
+import { saveIntakeHistory } from "@/services/intake";
 
 export default function IntakePregnancyScreen() {
   const { user } = useAuth();
-  const { profile, refresh } = useUserData();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Pregnancy History State
-  const [hadPreeclampsia, setHadPreeclampsia] = useState(false);
-  const [hadGestationalHypertension, setHadGestationalHypertension] = useState(false);
-  const [hadGestationalDiabetes, setHadGestationalDiabetes] = useState(false);
-  const [hadPretermBirth, setHadPretermBirth] = useState(false);
-  const [hadEclampsia, setHadEclampsia] = useState(false);
-
-  async function handleContinue() {
-    if (!user) return;
-
-    setIsSubmitting(true);
-    try {
-      // number_of_pregnancies is never asked in the UI — store null rather
-      // than fabricating a count.
-      const row = {
-        user_id: user.id,
-        had_preeclampsia: hadPreeclampsia,
-        had_gestational_hypertension: hadGestationalHypertension,
-        had_gestational_diabetes: hadGestationalDiabetes,
-        had_preterm_birth: hadPretermBirth,
-        had_eclampsia: hadEclampsia,
-        number_of_pregnancies: null,
-      };
-
-      // Update-or-insert: re-submitting (back navigation, retries) must not
-      // accumulate duplicate history rows.
-      const { data: existing, error: lookupError } = await supabase
-        .from("pregnancy_history")
-        .select("id")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (lookupError) throw lookupError;
-
-      const { error } = existing
-        ? await supabase.from("pregnancy_history").update(row).eq("id", existing.id)
-        : await supabase.from("pregnancy_history").insert(row);
-
-      if (error) throw error;
-
+  const { profile, pregnancyHistory: history, refresh } = useUserData();
+  const stage = profile?.stage ?? "not_specified";
+  const prior = readIntakeNotes(history?.notes);
+  const initial = {
+    had_preeclampsia: booleanAnswer(history?.hadPreeclampsia),
+    had_gestational_hypertension: booleanAnswer(history?.hadGestationalHypertension),
+    had_gestational_diabetes: booleanAnswer(history?.hadGestationalDiabetes),
+    had_preterm_birth: booleanAnswer(history?.hadPretermBirth),
+    had_eclampsia: booleanAnswer(history?.hadEclampsia),
+    number_of_pregnancies: history?.numberOfPregnancies == null ? "" : String(history.numberOfPregnancies),
+    ...(prior?.stage === stage ? prior.answers : {}),
+  };
+  return <Screen scroll={false} contentStyle={{ paddingHorizontal: 0, paddingVertical: 0 }}>
+    <IntakeForm key={`${user?.id}:${stage}`} sections={pregnancySections(stage)} initialAnswers={initial} onSave={async answers => {
+      if (!user || stage === "not_specified") throw new Error("Please sign in and choose your stage first.");
+      await saveIntakeHistory("pregnancy_history", user.id, stage, answers);
       await refresh();
       router.push("/(auth)/intake-family");
-    } catch (err) {
-      console.error("Error saving pregnancy history:", err);
-      Alert.alert("Error", "Could not save pregnancy history.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  const historyItems = [
-    { label: "Preeclampsia", value: hadPreeclampsia, setter: setHadPreeclampsia },
-    { label: "Gestational Hypertension", value: hadGestationalHypertension, setter: setHadGestationalHypertension },
-    { label: "Gestational Diabetes", value: hadGestationalDiabetes, setter: setHadGestationalDiabetes },
-    { label: "Preterm Birth", value: hadPretermBirth, setter: setHadPretermBirth },
-    { label: "Eclampsia", value: hadEclampsia, setter: setHadEclampsia },
-  ];
-
-  return (
-    <Screen>
-      <Heading level={2}>Your Journey</Heading>
-      <Body tone="muted">
-        {profile?.stage === "pregnant"
-          ? "Tell us about your current or past pregnancies."
-          : "Tell us about your pregnancy history."}
-      </Body>
-
-      <Card style={styles.card}>
-        <Heading level={3}>Have you ever experienced any of these?</Heading>
-        <View style={styles.list}>
-          {historyItems.map((item) => (
-            <View key={item.label} style={styles.row}>
-              <Body style={styles.rowLabel}>{item.label}</Body>
-              <Switch
-                value={item.value}
-                onValueChange={item.setter}
-                trackColor={{ false: colors.border.default, true: colors.accent.roseLight }}
-                thumbColor={item.value ? colors.accent.rose : "#f4f3f4"}
-              />
-            </View>
-          ))}
-        </View>
-      </Card>
-
-      <View style={styles.footer}>
-        <Button
-          label={isSubmitting ? "Saving..." : "Continue"}
-          onPress={handleContinue}
-          disabled={isSubmitting}
-        />
-        {/* RootGate requires a pregnancy_history row to leave this screen,
-            so skipping must persist the (all-false) defaults — a bare
-            navigation just bounced the user straight back here. */}
-        <Button
-          label="Skip for now"
-          variant="ghost"
-          onPress={handleContinue}
-          disabled={isSubmitting}
-        />
-      </View>
-    </Screen>
-  );
+    }} />
+  </Screen>;
 }
-
-const styles = StyleSheet.create({
-  card: {
-    gap: spacing.md,
-  },
-  list: {
-    gap: spacing.sm,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: spacing.xs,
-  },
-  rowLabel: {
-    flex: 1,
-    color: colors.fg.secondary,
-  },
-  footer: {
-    gap: spacing.sm,
-  },
-});
