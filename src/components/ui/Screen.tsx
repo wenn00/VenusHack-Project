@@ -18,8 +18,9 @@ interface ScreenProps {
 
 export function Screen({ children, scroll = true, contentStyle, fixedOverlay }: ScreenProps) {
   const insets = useSafeAreaInsets();
+  const bottomPadding = Math.max(100, typeof contentStyle?.paddingBottom === "number" ? contentStyle.paddingBottom : 0) + insets.bottom;
   const Inner = (
-    <View style={[styles.inner, { paddingBottom: 100 + insets.bottom }, contentStyle]}>{children}</View>
+    <View style={[styles.inner, contentStyle, { paddingBottom: bottomPadding }]}>{children}</View>
   );
 
   return (
