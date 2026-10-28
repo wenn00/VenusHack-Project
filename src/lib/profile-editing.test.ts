@@ -40,6 +40,12 @@ describe("section answer preservation", () => {
     expect(result).not.toHaveProperty("sleep");
     expect(result).not.toHaveProperty("support");
   });
+  it("does not resurrect stale known values when canonical facts are null", () => {
+    const result = getHistoryAnswers("pregnancy_history", "planning", { ...pregnancy, hadPreeclampsia: null, numberOfPregnancies: null, notes: notes("planning", { had_preeclampsia: "Yes", number_of_pregnancies: "2", had_eclampsia: "Prefer not to answer" }) });
+    expect(result.had_preeclampsia).toBe("");
+    expect(result.number_of_pregnancies).toBe("");
+    expect(result.had_eclampsia).toBe("Prefer not to answer");
+  });
   it("returns no fabricated answers when no history exists", () => {
     expect(getHistoryAnswers("family_history", "planning", null)).toEqual({});
   });

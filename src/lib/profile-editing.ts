@@ -82,12 +82,12 @@ export function getHistoryAnswers(table: HistoryTable, stage: PregnancyStage, hi
     // The canonical column is authoritative when it has a known value. Keep
     // explicit "Not sure" / declined notes when the canonical value is null.
     if (typeof value === "boolean") answers[column] = booleanAnswer(value);
-    else if (!Object.hasOwn(answers, column)) answers[column] = "";
+    else answers[column] = ["Not sure", "Prefer not to answer"].includes(answers[column]) ? answers[column] : "";
   }
   if (table === "pregnancy_history") {
     const count = fields.numberOfPregnancies;
     if (typeof count === "number" && Number.isFinite(count)) answers.number_of_pregnancies = String(count);
-    else if (!Object.hasOwn(answers, "number_of_pregnancies")) answers.number_of_pregnancies = "";
+    else answers.number_of_pregnancies = "";
   }
   return answers;
 }

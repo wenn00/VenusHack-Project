@@ -12,6 +12,17 @@ describe("intake answers", () => {
     const edited = writeIntakeNotes("planning", { doctor: "Dr. Lin" }, saved);
     expect(readIntakeNotes(edited)).toMatchObject({ answers: { doctor: "Dr. Lin" }, legacyNote: "Existing clinical note" });
   });
+  it("preserves archives and unknown metadata on full saves without merging old active answers", () => {
+    const previous = JSON.stringify({ format: "kairos-intake-v1", stage: "pregnant", answers: { current_symptoms: "Old symptom", doctor: "Dr. A", future_answer: { detail: 1 } }, legacyNote: "Old note", futureMetadata: { version: 2 }, stageAnswers: { planning: { activity: "Active" } } });
+    const saved = JSON.parse(writeIntakeNotes("postpartum", { breastfeeding: "No", doctor: "" }, previous));
+    expect(saved.answers).toEqual({ breastfeeding: "No", doctor: "" });
+    expect(saved.stageAnswers).toMatchObject({ planning: { activity: "Active" }, pregnant: { current_symptoms: "Old symptom", future_answer: { detail: 1 } } });
+    expect(saved.futureMetadata).toEqual({ version: 2 });
+    const edited = JSON.parse(writeIntakeNotes("postpartum", { breastfeeding: "" }, JSON.stringify(saved)));
+    expect(edited.answers).toEqual({ breastfeeding: "" });
+    expect(edited.stageAnswers).toEqual(saved.stageAnswers);
+    expect(edited.legacyNote).toBe("Old note");
+  });
   it("does not mistake arbitrary JSON or invalid data for intake", () => {
     expect(readIntakeNotes('{"answers":{}}')).toBeNull();
     expect(readIntakeNotes("not json")).toBeNull();
