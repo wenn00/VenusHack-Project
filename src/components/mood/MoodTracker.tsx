@@ -69,6 +69,7 @@ interface Props {
 export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
   const [selected, setSelected] = useState<Mood | null>(null);
   const [note, setNote] = useState("");
+  const [returningToChoices, setReturningToChoices] = useState(false);
   const motion = useMoodMotion();
   const { width } = useWindowDimensions();
   const clusterWidth = Math.min(334, Math.max(220, width - 64));
@@ -83,7 +84,9 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     });
-    animation.start();
+    animation.start(({ finished }) => {
+      if (finished) setReturningToChoices(false);
+    });
     return () => animation.stop();
   }, [selected, motion, panel]);
 
@@ -100,7 +103,7 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
       <Animated.View style={[styles.cluster, { width: clusterWidth, height: panel.interpolate({ inputRange: [0, 1], outputRange: [clusterWidth + 38, 218] }) }]}>
         {OPTIONS.map((item, index) => (
           <MoodOrb key={item.mood} item={item} index={index} size={orbSize} width={clusterWidth}
-            motion={motion} selected={selected} disabled={isSaving} onSelect={() => {
+            motion={motion} selected={selected} disabled={isSaving || returningToChoices} onSelect={() => {
               Keyboard.dismiss();
               setSelected(item.mood);
             }} />
@@ -112,7 +115,7 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
           opacity: panel,
           transform: [{ translateY: panel.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
         }]}>
-          <Pressable accessibilityRole="button" onPress={() => { Keyboard.dismiss(); setSelected(null); }}
+          <Pressable accessibilityRole="button" onPress={() => { Keyboard.dismiss(); setReturningToChoices(motion); setSelected(null); }}
             disabled={isSaving} style={styles.changeButton}>
             <Text style={styles.changeText}>Choose a different feeling</Text>
           </Pressable>
