@@ -65,11 +65,13 @@ function Question({ question, value, onChange, disabled }: { question: IntakeQue
       <View style={styles.overlay}>
         <Pressable accessibilityLabel="Close choices" accessibilityRole="button" onPress={() => setOpen(false)} style={StyleSheet.absoluteFill} />
         <View style={styles.sheet} accessibilityViewIsModal>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetContent}>
           <Text style={styles.label}>{question.label}</Text>
           {[...question.choices, "Leave unanswered"].map(choice => <Pressable key={choice} accessibilityRole="radio" accessibilityState={{ checked: value === choice || (!value && choice === "Leave unanswered") }} onPress={() => { onChange(choice === "Leave unanswered" ? "" : choice); setOpen(false); }} style={styles.choice}>
             <Text style={styles.option}>{choice}</Text>{value === choice && <Text style={styles.option}>✓</Text>}
           </Pressable>)}
           <Button label="Cancel" variant="ghost" onPress={() => setOpen(false)} />
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -86,7 +88,8 @@ const styles = StyleSheet.create({
   placeholder: { color: colors.fg.placeholder },
   chevron: { marginLeft: "auto", color: "white", fontSize: 22 },
   overlay: { flex: 1, backgroundColor: "rgba(0,16,60,0.65)", justifyContent: "center", padding: 24 },
-  sheet: { backgroundColor: "#1750AC", borderRadius: 20, padding: 24, gap: 12, maxWidth: 440, width: "100%", alignSelf: "center" },
+  sheet: { backgroundColor: "#1750AC", borderRadius: 20, maxHeight: "85%", maxWidth: 440, width: "100%", alignSelf: "center", overflow: "hidden" },
+  sheetContent: { padding: 24, gap: 12 },
   choice: { minHeight: 48, borderBottomWidth: 1, borderColor: colors.border.default, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 10 },
   progress: { flexDirection: "row", gap: 6, marginVertical: 8 },
   progressPart: { height: 3, backgroundColor: "rgba(255,255,255,0.2)", flex: 1, borderRadius: 3 },
