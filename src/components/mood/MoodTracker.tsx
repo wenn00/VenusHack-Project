@@ -160,8 +160,8 @@ function MoodOrb({ item, index, size, width, motion, selected, disabled, onSelec
       return;
     }
     const cycle = Animated.loop(Animated.sequence([
-      Animated.timing(breath, { toValue: 1, duration: 2600 + index * 140, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
-      Animated.timing(breath, { toValue: 0, duration: 2600 + index * 140, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
+      Animated.timing(breath, { toValue: 1, duration: 2400 + index * 110, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
+      Animated.timing(breath, { toValue: 0, duration: 2400 + index * 110, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
     ]));
     const timer = setTimeout(() => cycle.start(), index * 220);
     return () => { clearTimeout(timer); cycle.stop(); breath.setValue(0); };
@@ -194,26 +194,44 @@ function MoodOrb({ item, index, size, width, motion, selected, disabled, onSelec
       <Pressable accessibilityRole="button" accessibilityLabel={`Feeling ${item.label.toLowerCase()}`}
         accessibilityState={{ selected: chosen, disabled }} disabled={disabled || !!selected}
         onPress={onSelect} onPressIn={() => animatePress(0.94)} onPressOut={() => animatePress(1)}>
-        <Animated.View style={{ transform: [{ scale: press }] }}>
-          <Animated.View pointerEvents="none" style={[styles.halo, {
-            width: size * 1.32, height: size * 1.32, borderRadius: size,
-            left: -size * 0.16, top: -size * 0.16,
-            opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.38, 0.62] }),
-            transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.08] }) }],
+        <Animated.View style={{ width: size, height: size, transform: [{ scale: press }] }}>
+          {/* Both layers fade to transparent: no opaque disk or hard circular edge.
+              Keep the layout/hit target fixed while the light breathes around it. */}
+          <Animated.View pointerEvents="none" style={[styles.glowLayer, {
+            width: size * 1.9, height: size * 1.9,
+            left: -size * 0.45, top: -size * 0.45,
+            opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.28, 0.64] }),
+            transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.84, 1.18] }) }],
           }]}>
             <Svg width="100%" height="100%" viewBox="0 0 100 100">
               <Defs><RadialGradient id={`mood-glow-${item.mood}`} cx="50%" cy="50%" r="50%">
-                <Stop offset="45%" stopColor={item.color} stopOpacity="0.65" />
-                <Stop offset="72%" stopColor={item.color} stopOpacity="0.35" />
+                <Stop offset="0%" stopColor={item.color} stopOpacity="0.7" />
+                <Stop offset="35%" stopColor={item.color} stopOpacity="0.46" />
+                <Stop offset="65%" stopColor={item.color} stopOpacity="0.18" />
+                <Stop offset="85%" stopColor={item.color} stopOpacity="0.045" />
                 <Stop offset="100%" stopColor={item.color} stopOpacity="0" />
               </RadialGradient></Defs>
               <Rect width="100" height="100" fill={`url(#mood-glow-${item.mood})`} />
             </Svg>
           </Animated.View>
-          <Animated.View style={[styles.orb, { width: size, height: size, borderRadius: size,
-            backgroundColor: item.color, shadowColor: item.color,
-            transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1.035] }) }],
-          }]} />
+          <Animated.View pointerEvents="none" style={[styles.glowLayer, {
+            width: size * 1.42, height: size * 1.42,
+            left: -size * 0.21, top: -size * 0.21,
+            opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.84, 1] }),
+            transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1.12] }) }],
+          }]}>
+            <Svg width="100%" height="100%" viewBox="0 0 100 100">
+              <Defs><RadialGradient id={`mood-core-${item.mood}`} cx="50%" cy="50%" r="50%">
+                <Stop offset="0%" stopColor={item.color} stopOpacity="1" />
+                <Stop offset="26%" stopColor={item.color} stopOpacity="0.97" />
+                <Stop offset="46%" stopColor={item.color} stopOpacity="0.83" />
+                <Stop offset="65%" stopColor={item.color} stopOpacity="0.5" />
+                <Stop offset="82%" stopColor={item.color} stopOpacity="0.16" />
+                <Stop offset="100%" stopColor={item.color} stopOpacity="0" />
+              </RadialGradient></Defs>
+              <Rect width="100" height="100" fill={`url(#mood-core-${item.mood})`} />
+            </Svg>
+          </Animated.View>
         </Animated.View>
       </Pressable>
       <Animated.Text style={[styles.orbLabel, { opacity: transition.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0, 0] }) }]}>{item.label}</Animated.Text>
@@ -229,8 +247,7 @@ const styles = StyleSheet.create({
   subtitle: { color: "rgba(255,255,255,0.78)", fontSize: 14, lineHeight: 22 },
   cluster: { alignSelf: "center", marginTop: 40 },
   orbPosition: { position: "absolute" },
-  halo: { position: "absolute" },
-  orb: { shadowOpacity: 0.65, shadowRadius: 12, shadowOffset: { width: 0, height: 0 }, elevation: 3 },
+  glowLayer: { position: "absolute" },
   orbLabel: { color: "rgba(255,255,255,0.88)", fontSize: 13, lineHeight: 20, textAlign: "center", marginTop: 12 },
   notes: { width: "100%", gap: 12 },
   changeButton: { alignSelf: "center", minHeight: 44, justifyContent: "center", paddingHorizontal: 12 },
