@@ -13,6 +13,7 @@ import { isUpcomingVisit, validVisitDate, localDateKey } from '@/lib/appointment
 interface Appointment { id: string; title: string; visit_date: string; provider: string; notes: string; summary: unknown }
 export default function AppointmentsScreen() {
   const { user } = useAuth();
+  const userId = user?.id;
   const [visits, setVisits] = useState<Appointment[]>([]);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState('');
@@ -27,12 +28,12 @@ export default function AppointmentsScreen() {
   useFocusEffect(useCallback(() => {
     let active = true;
     setVisits([]); setLoading(true); setError(null);
-    if (!user) { setLoading(false); return; }
+    if (!userId) { setLoading(false); return; }
     const columns = 'id,title,visit_date,provider,notes,summary';
     const today = localDateKey();
     Promise.all([
-      supabase.from('appointments').select(columns).eq('user_id', user.id).gte('visit_date', today).order('visit_date', { ascending: true }).limit(100),
-      supabase.from('appointments').select(columns).eq('user_id', user.id).lt('visit_date', today).order('visit_date', { ascending: false }).limit(100),
+      supabase.from('appointments').select(columns).eq('user_id', userId).gte('visit_date', today).order('visit_date', { ascending: true }).limit(100),
+      supabase.from('appointments').select(columns).eq('user_id', userId).lt('visit_date', today).order('visit_date', { ascending: false }).limit(100),
     ]).then(([upcoming, past]) => {
       if (!active) return;
       if (upcoming.error || past.error) setError('Your appointments could not be loaded. Please check your connection and try again.');
@@ -40,7 +41,7 @@ export default function AppointmentsScreen() {
       setLoading(false);
     }, () => { if (active) { setError('Could not connect. Please try again.'); setLoading(false); } });
     return () => { active = false; };
-  }, [user?.id, revision]));
+  }, [userId, revision]));
   async function save() {
     if (!user || savingRef.current) return;
     if (!title.trim() || !validVisitDate(date)) { setError('Enter a visit title and a valid date in YYYY-MM-DD format.'); return; }

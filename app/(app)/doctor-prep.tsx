@@ -22,7 +22,7 @@ import { Heading } from "@/components/ui/Heading";
 import { Screen } from "@/components/ui/Screen";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
-import { DoctorSummary, generateDoctorSummary } from "@/services/gemini";
+import { AiAccessError, DoctorSummary, generateDoctorSummary } from "@/services/gemini";
 import { BpRow, exportDoctorSummary, MoodRow } from "@/services/pdf";
 import { supabase } from "@/services/supabase";
 import { colors, spacing } from "@/theme";
@@ -31,6 +31,7 @@ import { readSavedSummary } from "@/lib/saved-summary";
 import { validAppointmentId } from "@/lib/appointments";
 
 type Stage = "idle" | "loading" | "ready" | "error";
+class SummaryPreparationError extends Error {}
 
 const DAYS_BACK = 30;
 const MAX_CHAT_EXCERPTS = 25;
@@ -44,7 +45,11 @@ interface GatheredData {
 
 export default function DoctorPrepScreen() {
   const { user } = useAuth();
-  const { appointmentId } = useLocalSearchParams<{ appointmentId?: string }>();
+  const userId = user?.id;
+  const { appointmentId } = useLocalSearchParams<{ appointmentId?: string | string[] }>();
+  const [loadRevision, setLoadRevision] = useState(0);
+  const [errorAction, setErrorAction] = useState<"load" | "generate" | "none">("generate");
+  const [loadingSaved, setLoadingSaved] = useState(false);
   const generating = useRef(false);
   const contextVersion = useRef(0);
   const [generatedAt, setGeneratedAt] = useState("");
@@ -61,23 +66,26 @@ export default function DoctorPrepScreen() {
     const version = ++contextVersion.current;
     generating.current = false;
     let active = true;
-    setSummary(null); setRawBp([]); setRawMood([]); setStage("idle");
+    // A changed appointment/account must clear the previous patient snapshot.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSummary(null); setRawBp([]); setRawMood([]); setGeneratedAt(""); setErrorMessage(null); setStage("idle");
+    setErrorAction("generate"); setLoadingSaved(false);
     const cleanup = () => { active = false; if (contextVersion.current === version) contextVersion.current++; };
-    if (!appointmentId || !user) return cleanup;
-    if (!validAppointmentId(appointmentId)) { setErrorMessage("Invalid appointment link."); setStage("error"); return; }
-    setStage("loading");
-    supabase.from("appointments").select("summary").eq("id", appointmentId).eq("user_id", user.id).single().then(({ data, error }) => {
+    if (!appointmentId || !userId) return cleanup;
+    if (!validAppointmentId(appointmentId)) { setErrorMessage("Invalid appointment link. Return to your appointments and choose a visit."); setErrorAction("none"); setStage("error"); return cleanup; }
+    setStage("loading"); setLoadingSaved(true);
+    supabase.from("appointments").select("summary").eq("id", appointmentId).eq("user_id", userId).single().then(({ data, error }) => {
       if (!active) return;
-      if (error) { setErrorMessage("Could not load this appointment."); setStage("error"); return; }
+      if (error) { setErrorMessage("Could not load this appointment."); setErrorAction("load"); setStage("error"); return; }
       if (data.summary) {
         try {
           const saved = readSavedSummary(data.summary);
           setSummary(saved.summary); setRawBp(saved.bpRows); setRawMood(saved.moodRows); setGeneratedAt(saved.generatedAt); setStage("ready");
         } catch { setErrorMessage("Saved summary could not be read. Generate a new summary to replace it."); setStage("error"); }
       } else setStage("idle");
-    }, () => { if (active) { setErrorMessage("Could not load this appointment."); setStage("error"); } });
+    }, () => { if (active) { setErrorMessage("Could not load this appointment."); setErrorAction("load"); setStage("error"); } });
     return cleanup;
-  }, [appointmentId, user?.id]);
+  }, [appointmentId, userId, loadRevision]);
 
   const handleGenerate = useCallback(async () => {
     if (!user) {
@@ -90,6 +98,8 @@ export default function DoctorPrepScreen() {
     const current = () => version === contextVersion.current;
     generating.current = true;
     setStage("loading");
+    setLoadingSaved(false);
+    setErrorAction("generate");
     setErrorMessage(null);
 
     try {
@@ -100,7 +110,7 @@ export default function DoctorPrepScreen() {
       const timestamp = new Date().toISOString();
       if (appointmentId) {
         const { error } = await supabase.from("appointments").update({ summary: { summary: result, bpRows, moodRows, generatedAt: timestamp } }).eq("id", appointmentId).eq("user_id", user.id).select("id").single();
-        if (error) throw new Error("The summary could not be saved to your appointment. Please retry.");
+        if (error) throw new SummaryPreparationError("The summary could not be saved to your appointment. Please retry.");
       }
       if (!current()) return;
       setGeneratedAt(timestamp);
@@ -111,7 +121,9 @@ export default function DoctorPrepScreen() {
     } catch (err) {
       if (!current()) return;
       console.warn("[doctor-prep] generation failed:", err);
-      setErrorMessage((err as Error)?.message ?? "Unknown error");
+      setErrorMessage(err instanceof AiAccessError || err instanceof SummaryPreparationError
+        ? err.message
+        : "The summary could not be generated. Please check your connection and try again.");
       setStage("error");
     } finally { if (current()) generating.current = false; }
   }, [user, appointmentId]);
@@ -135,30 +147,27 @@ export default function DoctorPrepScreen() {
         moodEntries: rawMood,
       });
     } catch (err) {
-      Alert.alert("Export failed", (err as Error).message);
+      console.warn("[doctor-prep] export failed", err);
+      Alert.alert("Export failed", "The PDF could not be exported. Please try again.");
     } finally {
       setIsExporting(false);
     }
-  }, [summary, profile?.fullName, rawBp, rawMood, generatedAt]);
+  }, [summary, profile, rawBp, rawMood, generatedAt]);
 
   // ----- Render --------------------------------------------------------
 
   if (stage === "loading") {
     return (
       <Screen>
-        <Heading level={2}>Preparing your visit summary…</Heading>
+        <Heading level={2}>{loadingSaved ? "Loading your saved summary…" : "Preparing your visit summary…"}</Heading>
         <Card>
           <View style={styles.loadingRow}>
             <ActivityIndicator size="large" color={colors.accent.rose} />
           </View>
           <Body tone="muted">
-            Gathering the past {DAYS_BACK} days of vitals, mood, voice notes,
-            symptom reports, and your chats with Kairos — then asking the AI
-            to organise it the way a clinician would want to see it.
+            {loadingSaved ? "Retrieving the summary saved with this appointment." : `Gathering the past ${DAYS_BACK} days of your health records, then organizing them into a visit summary.`}
           </Body>
-          <Body tone="muted" size="sm">
-            This usually takes 10–20 seconds.
-          </Body>
+          {!loadingSaved && <Body tone="muted" size="sm">This usually takes 10–20 seconds.</Body>}
         </Card>
       </Screen>
     );
@@ -208,15 +217,13 @@ export default function DoctorPrepScreen() {
   if (stage === "error") {
     return (
       <Screen>
-        <Heading level={2}>Couldn't build the summary</Heading>
+        <Heading level={2}>Summary unavailable</Heading>
         <Card>
           <Body>{errorMessage ?? "Unknown error"}</Body>
         </Card>
-        <Body tone="muted" size="sm">
-          This often resolves on a retry. If it keeps failing, you may have run
-          out of AI quota or the network is unreachable.
-        </Body>
-        <Button label="Try again" onPress={handleGenerate} />
+        {errorAction === "load" && <Button label="Retry loading" onPress={() => setLoadRevision(value => value + 1)} />}
+        {errorAction === "generate" && <Button label="Generate again" onPress={handleGenerate} />}
+        {errorAction === "none" && <Button label="View appointments" onPress={() => router.replace("/(app)/appointments")} />}
         <Button label="Back" variant="ghost" onPress={() => router.back()} />
       </Screen>
     );
@@ -228,14 +235,14 @@ export default function DoctorPrepScreen() {
       <Heading level={2}>Prepare for your visit</Heading>
       <Body tone="muted">
         Walk into your appointment with a clear, organised summary of how
-        you've actually been — backed by data — and a list of questions
+        you have actually been — backed by data — and a list of questions
         worth asking. Your doctor will thank you.
       </Body>
 
       <Card>
-        <Heading level={3}>What we'll do</Heading>
+        <Heading level={3}>What we will do</Heading>
         <Body>
-          We'll look at the past {DAYS_BACK} days of your vitals, mood,
+          We will look at the past {DAYS_BACK} days of your vitals, mood,
           voice journal entries, symptoms, and chats with Kairos, then ask
           our AI to produce a clinician-style summary plus tailored
           questions for your appointment.
@@ -346,7 +353,8 @@ async function gatherThirtyDayData(userId: string): Promise<GatheredData> {
   const queries = { bp, vitals, mood, voice, symptoms, chat, profile, pregnancy, family };
   for (const [name, res] of Object.entries(queries)) {
     if (res.error) {
-      throw new Error(`Couldn't load your ${name} data (${res.error.message}). Please try again.`);
+      console.warn(`[doctor-prep] ${name} query failed`, res.error);
+      throw new SummaryPreparationError("Some health records could not be loaded. Please try again before generating a summary.");
     }
   }
 
