@@ -13,6 +13,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useFocusEffect } from "expo-router";
+import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 import { Mood } from "@/types";
 import { colors, radius, typography } from "@/theme";
 
@@ -140,7 +141,11 @@ function MoodOrb({ item, index, size, width, motion, selected, disabled, onSelec
   const breath = useRef(new Animated.Value(0)).current;
   const transition = useRef(new Animated.Value(0)).current;
   const press = useRef(new Animated.Value(1)).current;
+  const lastSelection = useRef<Mood | null>(null);
+  if (selected !== null) lastSelection.current = selected;
   const chosen = selected === item.mood;
+  // Keep the previous endpoints while reversing, so the orb glides home.
+  const wasChosen = lastSelection.current === item.mood;
   const hidden = selected !== null && !chosen;
   const initialX = item.x * (width - size);
   const initialY = item.y * (width - 20);
@@ -176,23 +181,32 @@ function MoodOrb({ item, index, size, width, motion, selected, disabled, onSelec
     <Animated.View pointerEvents={hidden ? "none" : "auto"}
       accessibilityElementsHidden={hidden} importantForAccessibility={hidden ? "no-hide-descendants" : "auto"}
       style={[styles.orbPosition, { left: initialX, top: initialY, width: size,
-        opacity: hidden ? transition.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) : 1,
+        opacity: !wasChosen ? transition.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) : 1,
         transform: [
-          { translateX: transition.interpolate({ inputRange: [0, 1], outputRange: [0, chosen ? (width - size) / 2 - initialX : 0] }) },
-          { translateY: transition.interpolate({ inputRange: [0, 1], outputRange: [0, chosen ? 64 - initialY : 0] }) },
-          { scale: transition.interpolate({ inputRange: [0, 1], outputRange: [1, chosen ? Math.min(181, width * 0.55) / size : 0.84] }) },
+          { translateX: transition.interpolate({ inputRange: [0, 1], outputRange: [0, wasChosen ? (width - size) / 2 - initialX : 0] }) },
+          { translateY: transition.interpolate({ inputRange: [0, 1], outputRange: [0, wasChosen ? 64 - initialY : 0] }) },
+          { scale: transition.interpolate({ inputRange: [0, 1], outputRange: [1, wasChosen ? Math.min(181, width * 0.55) / size : 0.84] }) },
         ],
       }]}>
       <Pressable accessibilityRole="button" accessibilityLabel={`Feeling ${item.label.toLowerCase()}`}
         accessibilityState={{ selected: chosen, disabled }} disabled={disabled || !!selected}
         onPress={onSelect} onPressIn={() => animatePress(0.94)} onPressOut={() => animatePress(1)}>
         <Animated.View style={{ transform: [{ scale: press }] }}>
-          <Animated.View pointerEvents="none" style={[styles.halo, { backgroundColor: item.color,
+          <Animated.View pointerEvents="none" style={[styles.halo, {
             width: size * 1.32, height: size * 1.32, borderRadius: size,
             left: -size * 0.16, top: -size * 0.16,
-            opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.07, 0.18] }),
+            opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.38, 0.62] }),
             transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.08] }) }],
-          }]} />
+          }]}>
+            <Svg width="100%" height="100%" viewBox="0 0 100 100">
+              <Defs><RadialGradient id={`mood-glow-${item.mood}`} cx="50%" cy="50%" r="50%">
+                <Stop offset="45%" stopColor={item.color} stopOpacity="0.65" />
+                <Stop offset="72%" stopColor={item.color} stopOpacity="0.35" />
+                <Stop offset="100%" stopColor={item.color} stopOpacity="0" />
+              </RadialGradient></Defs>
+              <Rect width="100" height="100" fill={`url(#mood-glow-${item.mood})`} />
+            </Svg>
+          </Animated.View>
           <Animated.View style={[styles.orb, { width: size, height: size, borderRadius: size,
             backgroundColor: item.color, shadowColor: item.color,
             transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.97, 1.035] }) }],
