@@ -19,11 +19,11 @@ export interface UserProfile {
 export interface PregnancyHistory {
   id: string;
   userId: string;
-  hadPreeclampsia: boolean;
-  hadGestationalHypertension: boolean;
-  hadGestationalDiabetes: boolean;
-  hadPretermBirth: boolean;
-  hadEclampsia: boolean;
+  hadPreeclampsia: boolean | null;
+  hadGestationalHypertension: boolean | null;
+  hadGestationalDiabetes: boolean | null;
+  hadPretermBirth: boolean | null;
+  hadEclampsia: boolean | null;
   // Nullable: the intake UI never asks for a count, and fabricating one
   // (the old hardcoded 1) is worse than admitting it's unknown.
   numberOfPregnancies: number | null;
@@ -33,9 +33,9 @@ export interface PregnancyHistory {
 export interface FamilyHistory {
   id: string;
   userId: string;
-  hasCvdFamily: boolean;
-  hasStrokeFamily: boolean;
-  hasDiabetesFamily: boolean;
-  hasHypertensionFamily: boolean;
+  hasCvdFamily: boolean | null;
+  hasStrokeFamily: boolean | null;
+  hasDiabetesFamily: boolean | null;
+  hasHypertensionFamily: boolean | null;
   notes: string | null;
 }

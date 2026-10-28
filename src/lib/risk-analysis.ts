@@ -63,6 +63,22 @@ export function evaluateBaselineRisk(
     }
   }
 
+  const incomplete = !pregHistory || !familyHistory || [
+    pregHistory.hadPreeclampsia, pregHistory.hadEclampsia,
+    pregHistory.hadGestationalHypertension, pregHistory.hadGestationalDiabetes,
+    pregHistory.hadPretermBirth, familyHistory.hasCvdFamily,
+    familyHistory.hasStrokeFamily, familyHistory.hasDiabetesFamily,
+    familyHistory.hasHypertensionFamily,
+  ].some(value => value == null);
+  if (incomplete) {
+    if (level === "green") {
+      message = "Your health history is incomplete.";
+      detail = "Some answers are unknown. This is not a confirmation of normal risk; you can update your history when you are ready.";
+    } else {
+      detail += " Some history answers are unknown.";
+    }
+  }
+
   return {
     level,
     triggers,
