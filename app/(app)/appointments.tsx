@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/Card';
 import { TextField } from '@/components/ui/TextField';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/services/supabase';
-import { isUpcomingVisit, validVisitDate } from '@/lib/appointments';
+import { isUpcomingVisit, validVisitDate, localDateKey } from '@/lib/appointments';
 interface Appointment { id: string; title: string; visit_date: string; provider: string; notes: string; summary: unknown }
 export default function AppointmentsScreen() {
   const { user } = useAuth();
@@ -28,10 +28,15 @@ export default function AppointmentsScreen() {
     let active = true;
     setVisits([]); setLoading(true); setError(null);
     if (!user) { setLoading(false); return; }
-    supabase.from('appointments').select('id,title,visit_date,provider,notes,summary').eq('user_id', user.id).order('visit_date', { ascending: true }).limit(200).then(({ data, error: failure }) => {
+    const columns = 'id,title,visit_date,provider,notes,summary';
+    const today = localDateKey();
+    Promise.all([
+      supabase.from('appointments').select(columns).eq('user_id', user.id).gte('visit_date', today).order('visit_date', { ascending: true }).limit(100),
+      supabase.from('appointments').select(columns).eq('user_id', user.id).lt('visit_date', today).order('visit_date', { ascending: false }).limit(100),
+    ]).then(([upcoming, past]) => {
       if (!active) return;
-      if (failure) setError('Appointments are unavailable. The appointment database migration may still need to be applied, or the connection failed.');
-      else setVisits(data ?? []);
+      if (upcoming.error || past.error) setError('Appointments are unavailable. The appointment database migration may still need to be applied, or the connection failed.');
+      else setVisits([...(upcoming.data ?? []), ...(past.data ?? [])].sort((a, b) => a.visit_date.localeCompare(b.visit_date)));
       setLoading(false);
     }, () => { if (active) { setError('Could not connect. Please try again.'); setLoading(false); } });
     return () => { active = false; };
@@ -69,7 +74,7 @@ export default function AppointmentsScreen() {
     {!!error && <View accessibilityRole="alert"><Body>{error}</Body><Button label="Retry loading" variant="secondary" onPress={() => setRevision(v => v + 1)} /></View>}
     {loading ? <ActivityIndicator color="white" /> : !error && <><Heading level={2}>Upcoming visits</Heading>{list(true)}<Heading level={2}>Past Visits</Heading>{list(false)}</>}
     <Button label="Create a standalone visit summary" variant="secondary" onPress={() => router.push('/(app)/doctor-prep')} />
-    <Body size="sm" tone="muted">Visits are dates in your local calendar. This records your plans; it does not book an appointment with a provider. Showing up to 200 visits.</Body>
+    <Body size="sm" tone="muted">Visits are dates in your local calendar. This records your plans; it does not book an appointment with a provider. Showing the next 100 upcoming and latest 100 past visits.</Body>
   </Screen>;
 }
 const styles = StyleSheet.create({ screen: { paddingTop: 56, paddingBottom: 120, gap: 24 } });

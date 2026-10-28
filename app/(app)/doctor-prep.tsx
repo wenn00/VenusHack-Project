@@ -27,6 +27,7 @@ import { BpRow, exportDoctorSummary, MoodRow } from "@/services/pdf";
 import { supabase } from "@/services/supabase";
 import { colors, spacing } from "@/theme";
 
+import { readSavedSummary } from "@/lib/saved-summary";
 import { validAppointmentId } from "@/lib/appointments";
 
 type Stage = "idle" | "loading" | "ready" | "error";
@@ -45,6 +46,7 @@ export default function DoctorPrepScreen() {
   const { user } = useAuth();
   const { appointmentId } = useLocalSearchParams<{ appointmentId?: string }>();
   const generating = useRef(false);
+  const contextVersion = useRef(0);
   const [generatedAt, setGeneratedAt] = useState("");
   const { profile } = useUserData();
 
@@ -56,20 +58,25 @@ export default function DoctorPrepScreen() {
   const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
+    const version = ++contextVersion.current;
+    generating.current = false;
     let active = true;
     setSummary(null); setRawBp([]); setRawMood([]); setStage("idle");
-    if (!appointmentId || !user) return;
+    const cleanup = () => { active = false; if (contextVersion.current === version) contextVersion.current++; };
+    if (!appointmentId || !user) return cleanup;
     if (!validAppointmentId(appointmentId)) { setErrorMessage("Invalid appointment link."); setStage("error"); return; }
     setStage("loading");
     supabase.from("appointments").select("summary").eq("id", appointmentId).eq("user_id", user.id).single().then(({ data, error }) => {
       if (!active) return;
       if (error) { setErrorMessage("Could not load this appointment."); setStage("error"); return; }
       if (data.summary) {
-        const saved = data.summary;
-        setSummary(saved.summary); setRawBp(saved.bpRows ?? []); setRawMood(saved.moodRows ?? []); setGeneratedAt(saved.generatedAt); setStage("ready");
+        try {
+          const saved = readSavedSummary(data.summary);
+          setSummary(saved.summary); setRawBp(saved.bpRows); setRawMood(saved.moodRows); setGeneratedAt(saved.generatedAt); setStage("ready");
+        } catch { setErrorMessage("Saved summary could not be read. Generate a new summary to replace it."); setStage("error"); }
       } else setStage("idle");
     }, () => { if (active) { setErrorMessage("Could not load this appointment."); setStage("error"); } });
-    return () => { active = false; };
+    return cleanup;
   }, [appointmentId, user?.id]);
 
   const handleGenerate = useCallback(async () => {
@@ -79,28 +86,34 @@ export default function DoctorPrepScreen() {
     }
     if (generating.current) return;
     if (appointmentId && !validAppointmentId(appointmentId)) return;
+    const version = contextVersion.current;
+    const current = () => version === contextVersion.current;
     generating.current = true;
     setStage("loading");
     setErrorMessage(null);
 
     try {
       const { payload, bpRows, moodRows } = await gatherThirtyDayData(user.id);
+      if (!current()) return;
       const result = await generateDoctorSummary(payload);
+      if (!current()) return;
       const timestamp = new Date().toISOString();
       if (appointmentId) {
         const { error } = await supabase.from("appointments").update({ summary: { summary: result, bpRows, moodRows, generatedAt: timestamp } }).eq("id", appointmentId).eq("user_id", user.id).select("id").single();
         if (error) throw new Error("The summary could not be saved to your appointment. Please retry.");
       }
+      if (!current()) return;
       setGeneratedAt(timestamp);
       setSummary(result);
       setRawBp(bpRows);
       setRawMood(moodRows);
       setStage("ready");
     } catch (err) {
+      if (!current()) return;
       console.warn("[doctor-prep] generation failed:", err);
       setErrorMessage((err as Error)?.message ?? "Unknown error");
       setStage("error");
-    } finally { generating.current = false; }
+    } finally { if (current()) generating.current = false; }
   }, [user, appointmentId]);
 
   const handleExportPdf = useCallback(async () => {
