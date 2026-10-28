@@ -67,7 +67,7 @@ function RootGate() {
       return;
     }
 
-    if (!inAppGroup) {
+    if (!inAppGroup && !isIntakePage) {
       router.replace("/(app)/dashboard");
     }
   }, [
