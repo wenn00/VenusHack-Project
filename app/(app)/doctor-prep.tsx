@@ -12,9 +12,9 @@
  * data at a glance.
  */
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, View } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Body } from "@/components/ui/Body";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -26,6 +26,8 @@ import { DoctorSummary, generateDoctorSummary } from "@/services/gemini";
 import { BpRow, exportDoctorSummary, MoodRow } from "@/services/pdf";
 import { supabase } from "@/services/supabase";
 import { colors, spacing } from "@/theme";
+
+import { validAppointmentId } from "@/lib/appointments";
 
 type Stage = "idle" | "loading" | "ready" | "error";
 
@@ -41,6 +43,9 @@ interface GatheredData {
 
 export default function DoctorPrepScreen() {
   const { user } = useAuth();
+  const { appointmentId } = useLocalSearchParams<{ appointmentId?: string }>();
+  const generating = useRef(false);
+  const [generatedAt, setGeneratedAt] = useState("");
   const { profile } = useUserData();
 
   const [stage, setStage] = useState<Stage>("idle");
@@ -50,17 +55,43 @@ export default function DoctorPrepScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
+  useEffect(() => {
+    let active = true;
+    setSummary(null); setRawBp([]); setRawMood([]); setStage("idle");
+    if (!appointmentId || !user) return;
+    if (!validAppointmentId(appointmentId)) { setErrorMessage("Invalid appointment link."); setStage("error"); return; }
+    setStage("loading");
+    supabase.from("appointments").select("summary").eq("id", appointmentId).eq("user_id", user.id).single().then(({ data, error }) => {
+      if (!active) return;
+      if (error) { setErrorMessage("Could not load this appointment."); setStage("error"); return; }
+      if (data.summary) {
+        const saved = data.summary;
+        setSummary(saved.summary); setRawBp(saved.bpRows ?? []); setRawMood(saved.moodRows ?? []); setGeneratedAt(saved.generatedAt); setStage("ready");
+      } else setStage("idle");
+    }, () => { if (active) { setErrorMessage("Could not load this appointment."); setStage("error"); } });
+    return () => { active = false; };
+  }, [appointmentId, user?.id]);
+
   const handleGenerate = useCallback(async () => {
     if (!user) {
       Alert.alert("Not signed in", "Please sign in first.");
       return;
     }
+    if (generating.current) return;
+    if (appointmentId && !validAppointmentId(appointmentId)) return;
+    generating.current = true;
     setStage("loading");
     setErrorMessage(null);
 
     try {
       const { payload, bpRows, moodRows } = await gatherThirtyDayData(user.id);
       const result = await generateDoctorSummary(payload);
+      const timestamp = new Date().toISOString();
+      if (appointmentId) {
+        const { error } = await supabase.from("appointments").update({ summary: { summary: result, bpRows, moodRows, generatedAt: timestamp } }).eq("id", appointmentId).eq("user_id", user.id).select("id").single();
+        if (error) throw new Error("The summary could not be saved to your appointment. Please retry.");
+      }
+      setGeneratedAt(timestamp);
       setSummary(result);
       setRawBp(bpRows);
       setRawMood(moodRows);
@@ -69,8 +100,8 @@ export default function DoctorPrepScreen() {
       console.warn("[doctor-prep] generation failed:", err);
       setErrorMessage((err as Error)?.message ?? "Unknown error");
       setStage("error");
-    }
-  }, [user]);
+    } finally { generating.current = false; }
+  }, [user, appointmentId]);
 
   const handleExportPdf = useCallback(async () => {
     if (!summary) return;
@@ -78,7 +109,7 @@ export default function DoctorPrepScreen() {
     try {
       await exportDoctorSummary({
         patientName: profile?.fullName ?? "Kairos user",
-        generatedAt: new Date().toLocaleString(),
+        generatedAt: new Date(generatedAt).toLocaleString(),
         windowDays: DAYS_BACK,
         patientContext: summary.patient_context,
         vitalsSummary: summary.vitals_summary,
@@ -95,7 +126,7 @@ export default function DoctorPrepScreen() {
     } finally {
       setIsExporting(false);
     }
-  }, [summary, profile?.fullName, rawBp, rawMood]);
+  }, [summary, profile?.fullName, rawBp, rawMood, generatedAt]);
 
   // ----- Render --------------------------------------------------------
 
@@ -126,7 +157,7 @@ export default function DoctorPrepScreen() {
       <Screen>
         <Heading level={2}>Your visit summary</Heading>
         <Body tone="muted">
-          Generated {new Date().toLocaleDateString()} · Based on the past {DAYS_BACK} days
+          Generated {new Date(generatedAt).toLocaleDateString()} · Based on the past {DAYS_BACK} days
         </Body>
 
         {hasUrgent && (
