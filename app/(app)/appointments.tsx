@@ -35,7 +35,7 @@ export default function AppointmentsScreen() {
       supabase.from('appointments').select(columns).eq('user_id', user.id).lt('visit_date', today).order('visit_date', { ascending: false }).limit(100),
     ]).then(([upcoming, past]) => {
       if (!active) return;
-      if (upcoming.error || past.error) setError('Appointments are unavailable. The appointment database migration may still need to be applied, or the connection failed.');
+      if (upcoming.error || past.error) setError('Your appointments could not be loaded. Please check your connection and try again.');
       else setVisits([...(upcoming.data ?? []), ...(past.data ?? [])].sort((a, b) => a.visit_date.localeCompare(b.visit_date)));
       setLoading(false);
     }, () => { if (active) { setError('Could not connect. Please try again.'); setLoading(false); } });
