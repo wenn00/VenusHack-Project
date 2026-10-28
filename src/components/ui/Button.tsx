@@ -15,6 +15,8 @@ interface ButtonProps {
 export function Button({ label, onPress, variant = "primary", disabled, style }: ButtonProps) {
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: Boolean(disabled) }}
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => [

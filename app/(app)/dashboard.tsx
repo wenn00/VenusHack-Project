@@ -1,9 +1,8 @@
 import { router } from "expo-router";
-import { Platform, Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
-import Svg, { Circle, Line, Path, Rect } from "react-native-svg";
+import { Image, Platform, Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { Screen } from "@/components/ui/Screen";
 import { useUserData } from "@/contexts/UserDataContext";
-import { getPregnancyWeeks } from "@/lib/pregnancy";
+import { getDashboardCondition } from "@/lib/dashboard-condition";
 import { colors, spacing, typography } from "@/theme";
 
 export default function DashboardScreen() {
@@ -15,7 +14,7 @@ export default function DashboardScreen() {
       : kpinLevel === "yellow"
         ? colors.status.yellow
         : colors.status.green;
-  const weeks = getPregnancyWeeks(profile?.dueDate);
+  const condition = getDashboardCondition(profile);
   const today = new Date().toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
@@ -26,7 +25,7 @@ export default function DashboardScreen() {
     <Screen contentStyle={styles.screen} fixedOverlay={<StickyLogoHeader />}>
       <Text style={styles.greeting}>
         {getDayGreeting()}
-        {firstName ? `, ${firstName}` : ""}.{"\n"}We're here whenever{"\n"}you're ready.
+        {firstName ? `, ${firstName}` : ""}.{"\n"}{"We're here whenever you're ready."}
       </Text>
 
       <View style={styles.datePill}>
@@ -36,16 +35,25 @@ export default function DashboardScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Your condition</Text>
         <View style={styles.conditionCard}>
-          <View>
-            <Text style={styles.weekNumber}>{weeks ?? "—"}</Text>
-            <Text style={styles.weekLabel}>
-              {weeks === null ? "add your due date to track progress" : "weeks"}
-            </Text>
+          <View style={styles.conditionText}>
+            <Text style={condition.numeric ? styles.weekNumber : styles.stageName}>{condition.value}</Text>
+            <Text style={styles.weekLabel}>{condition.label}</Text>
+            <Text style={styles.conditionDetail}>{condition.detail}</Text>
           </View>
           <PregnancyIllustration />
         </View>
       </View>
 
+      <View style={styles.actionRow}>
+        <HomeActionCard
+          label={"Log how\nyou're feeling"}
+          onPress={() => router.push("/(app)/log-mood")}
+        />
+        <HomeActionCard
+          label={"Record your\nvitals"}
+          onPress={() => router.push("/(app)/log-bp")}
+        />
+      </View>
       {baselineEvaluation && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Risk status</Text>
@@ -59,16 +67,6 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      <View style={styles.actionRow}>
-        <HomeActionCard
-          label={"Log how\nyou're feeling"}
-          onPress={() => router.push("/(app)/log-mood")}
-        />
-        <HomeActionCard
-          label={"Record your\nvitals"}
-          onPress={() => router.push("/(app)/log-bp")}
-        />
-      </View>
     </Screen>
   );
 }
@@ -105,28 +103,7 @@ function HomeActionCard({
 }
 
 function PregnancyIllustration() {
-  return (
-    <Svg width={166} height={122} viewBox="0 0 220 160" style={styles.illustration}>
-      <Circle cx={145} cy={48} r={25} fill="white" opacity={0.98} />
-      <Circle cx={171} cy={39} r={18} fill="white" opacity={0.98} />
-      <Circle cx={122} cy={56} r={21} fill="white" opacity={0.98} />
-      <Circle cx={150} cy={66} r={14} fill="#2A6EEB" stroke="white" strokeWidth={3} />
-      <Circle cx={134} cy={64} r={11} fill="#2A6EEB" stroke="white" strokeWidth={3} />
-      <Circle cx={166} cy={64} r={11} fill="#2A6EEB" stroke="white" strokeWidth={3} />
-      <Path d="M142 77 C138 86 140 96 151 102" stroke="white" strokeWidth={3} fill="none" strokeLinecap="round" />
-      <Path d="M151 102 C178 107 190 128 187 151" stroke="white" strokeWidth={3} fill="none" strokeLinecap="round" />
-      <Path d="M135 88 C101 97 85 119 88 151" stroke="white" strokeWidth={3} fill="none" strokeLinecap="round" />
-      <Path d="M114 123 C111 136 120 144 134 146" stroke="white" strokeWidth={3} fill="none" strokeLinecap="round" />
-      <Line x1={42} y1={146} x2={213} y2={136} stroke="white" strokeWidth={3} strokeLinecap="round" />
-      <Rect x={118} y={125} width={25} height={25} stroke="white" strokeWidth={2} fill="none" />
-      <Path d="M118 125 L131 118 L143 125" stroke="white" strokeWidth={2} fill="none" />
-      <Line x1={131} y1={118} x2={131} y2={143} stroke="white" strokeWidth={2} />
-      <Rect x={165} y={119} width={22} height={29} stroke="white" strokeWidth={2} fill="none" />
-      <Path d="M165 119 L179 112 L187 119" stroke="white" strokeWidth={2} fill="none" />
-      <Rect x={194} y={111} width={20} height={27} stroke="white" strokeWidth={2} fill="none" />
-      <Path d="M194 111 L207 104 L214 111" stroke="white" strokeWidth={2} fill="none" />
-    </Svg>
-  );
+  return <Image source={require("../../assets/figma/condition-illustration.png")} accessible={false} resizeMode="contain" style={styles.illustration} />;
 }
 
 function getDayGreeting(): string {
@@ -145,9 +122,9 @@ const webBackdropBlurStyle = {
 
 const styles = StyleSheet.create({
   screen: {
-    minHeight: 812,
-    paddingHorizontal: 30,
-    paddingTop: 150,
+    
+    paddingHorizontal: 24,
+    paddingTop: 130,
     paddingBottom: 96,
   },
   logoHeader: {
@@ -166,23 +143,23 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     color: colors.fg.primary,
     fontFamily: typography.family.brand,
-    fontSize: 26,
-    lineHeight: 34,
+    fontSize: 20,
+    lineHeight: 28,
   },
   greeting: {
     color: colors.fg.primary,
     fontSize: 34,
     lineHeight: 44,
-    fontWeight: "300",
+    fontWeight: "400",
   },
   datePill: {
     alignSelf: "flex-start",
-    marginTop: 24,
-    minHeight: 48,
+    marginTop: 0,
+    minHeight: 40,
     justifyContent: "center",
-    borderRadius: 16,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.border.strong,
+    borderColor: colors.border.default,
     paddingHorizontal: spacing.md,
     backgroundColor: "rgba(255, 255, 255, 0.04)",
   },
@@ -193,8 +170,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   section: {
-    marginTop: 50,
-    gap: 18,
+    marginTop: 28,
+    gap: 16,
   },
   sectionTitle: {
     color: colors.fg.primary,
@@ -206,10 +183,10 @@ const styles = StyleSheet.create({
     minHeight: 156,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: colors.border.strong,
+    borderColor: colors.border.default,
     backgroundColor: colors.bg.card,
-    paddingHorizontal: 26,
-    paddingVertical: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -222,20 +199,20 @@ const styles = StyleSheet.create({
     fontWeight: "300",
   },
   weekLabel: {
-    marginLeft: 14,
+    marginLeft: 0,
     color: colors.fg.primary,
     fontSize: 18,
     lineHeight: 24,
     fontWeight: "400",
   },
-  illustration: {
-    marginRight: -12,
-    marginBottom: -10,
-  },
+  illustration: { width: 142, height: 104, flexShrink: 1, marginLeft: 8 },
+  conditionText: { flex: 1, minWidth: 0 },
+  stageName: { color: colors.fg.primary, fontSize: 25, lineHeight: 34, fontWeight: "500" },
+  conditionDetail: { color: colors.fg.muted, fontSize: 12, lineHeight: 18, marginTop: 6 },
   riskCard: {
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: colors.border.strong,
+    borderColor: colors.border.default,
     backgroundColor: colors.bg.card,
     paddingHorizontal: 22,
     paddingVertical: 18,
@@ -277,28 +254,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border.default,
     backgroundColor: colors.bg.card,
-    paddingHorizontal: 22,
-    paddingTop: 26,
-    paddingBottom: 22,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+    gap: 24,
   },
   cardPressed: {
     backgroundColor: colors.bg.muted,
   },
   actionLabel: {
     color: colors.fg.primary,
-    fontSize: 21,
+    fontSize: 20,
     lineHeight: 30,
     fontWeight: "400",
   },
   plusButton: {
-    position: "absolute",
-    right: 22,
-    bottom: 22,
+    alignSelf: "flex-end",
     width: 48,
     height: 48,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: colors.border.strong,
+    borderColor: colors.border.default,
     backgroundColor: "rgba(255, 255, 255, 0.24)",
     alignItems: "center",
     justifyContent: "center",
