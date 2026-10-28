@@ -37,6 +37,7 @@ interface UserDataValue {
   kpinLevel: KpinLevel;
   baselineEvaluation: KpinEvaluation | null;
   isLoading: boolean;
+  loadError: string | null;
   refresh: () => Promise<void>;
   pushKpinEvaluation: (evaluation: KpinEvaluation) => void;
 }
@@ -57,6 +58,8 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
   const [liveVitals, setLiveVitals] = useState<LiveVitals>(generateLiveVitals());
   const [activeEvaluations, setActiveEvaluations] = useState<KpinEvaluation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Demo body data is seeded at most once per provider mount. The empty-data
   // check below is itself idempotent, but this ref also blocks a concurrent
@@ -77,12 +80,15 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
       setRecentBp([]);
       setRecentMood([]);
       setIsLoading(false);
+      setLoadedUserId(null);
+      setLoadError(null);
       // Allow a different account signed in later to be seeded too.
       seedAttemptedRef.current = false;
       return;
     }
 
     setIsLoading(true);
+    setLoadError(null);
     try {
       // Fan out the queries in parallel; RLS scopes them to this user.
       const fetchAll = () =>
@@ -115,6 +121,12 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
         ]);
 
       let [profileRes, pregRes, familyRes, bpRes, moodRes] = await fetchAll();
+      const verifyQueries = () => {
+        for (const result of [profileRes, pregRes, familyRes, bpRes, moodRes]) {
+          if (result.error) throw result.error;
+        }
+      };
+      verifyQueries();
 
       // A fresh ANONYMOUS account gets demo body data (BP + rPPG vitals)
       // seeded once, then re-fetched so the screens render with it. Real
@@ -123,6 +135,7 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
         seedAttemptedRef.current = true;
         await seedDemoData(user.id);
         [profileRes, pregRes, familyRes, bpRes, moodRes] = await fetchAll();
+        verifyQueries();
       }
 
       // A newer refresh started while this one was in flight — drop these
@@ -135,14 +148,21 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
       setRecentBp((bpRes.data ?? []).map(mapBpReading));
       setRecentMood((moodRes.data ?? []).map(mapMoodEntry));
       setLiveVitals(generateLiveVitals());
+      setLoadedUserId(user.id);
     } catch (err) {
       console.warn("[UserDataContext] refresh failed:", err);
+      if (seq === refreshSeqRef.current) setLoadError("Your health profile could not be loaded. Please try again.");
     } finally {
       if (seq === refreshSeqRef.current) {
         setIsLoading(false);
       }
     }
   }, [user]);
+
+  useEffect(() => {
+    setActiveEvaluations([]);
+    seedAttemptedRef.current = false;
+  }, [user?.id]);
 
   useEffect(() => {
     refresh();
@@ -156,23 +176,29 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
     return summarizeKpin([baselineEvaluation, ...activeEvaluations]);
   }, [baselineEvaluation, activeEvaluations]);
 
+  // Auth can restore a session before this provider's fetch effect runs.
+  // The route gate must wait for data belonging to that exact user.
+  const dataMatchesUser = Boolean(user && loadedUserId === user.id);
+  const loadingForUser = isLoading || Boolean(user && loadedUserId !== user.id && !loadError);
+
   const value = useMemo<UserDataValue>(
     () => ({
-      profile,
-      pregnancyHistory,
-      familyHistory,
-      recentBp,
-      recentMood,
+      profile: dataMatchesUser ? profile : null,
+      pregnancyHistory: dataMatchesUser ? pregnancyHistory : null,
+      familyHistory: dataMatchesUser ? familyHistory : null,
+      recentBp: dataMatchesUser ? recentBp : [],
+      recentMood: dataMatchesUser ? recentMood : [],
       liveVitals,
-      kpinLevel,
-      baselineEvaluation,
-      isLoading,
+      kpinLevel: dataMatchesUser ? kpinLevel : "green",
+      baselineEvaluation: dataMatchesUser ? baselineEvaluation : null,
+      isLoading: loadingForUser,
+      loadError,
       refresh,
       pushKpinEvaluation: (evaluation: KpinEvaluation) => {
         setActiveEvaluations((prev) => [...prev.slice(-4), evaluation]);
       },
     }),
-    [profile, pregnancyHistory, familyHistory, recentBp, recentMood, liveVitals, kpinLevel, baselineEvaluation, isLoading, refresh],
+    [profile, pregnancyHistory, familyHistory, recentBp, recentMood, liveVitals, kpinLevel, baselineEvaluation, dataMatchesUser, loadingForUser, loadError, refresh],
   );
 
   return <UserDataContext.Provider value={value}>{children}</UserDataContext.Provider>;
