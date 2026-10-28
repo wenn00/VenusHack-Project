@@ -25,7 +25,7 @@ export default function DashboardScreen() {
     <Screen contentStyle={styles.screen} fixedOverlay={<StickyLogoHeader />}>
       <Text style={styles.greeting}>
         {getDayGreeting()}
-        {firstName ? `, ${firstName}` : ""}.{"\n"}We're here whenever you're ready.
+        {firstName ? `, ${firstName}` : ""}.{"\n"}{"We're here whenever you're ready."}
       </Text>
 
       <View style={styles.datePill}>
