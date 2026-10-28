@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { StyleSheet, Text, View, Alert } from "react-native";
 import { router } from "expo-router";
 import { Body } from "@/components/ui/Body";
@@ -7,6 +7,7 @@ import { Screen } from "@/components/ui/Screen";
 import { TextField } from "@/components/ui/TextField";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
+import { validIntakeDate } from "@/lib/intake";
 import { supabase } from "@/services/supabase";
 import { spacing, typography } from "@/theme";
 import { PregnancyStage } from "@/types";
@@ -15,16 +16,20 @@ export default function IntakeBasicScreen() {
   const { user } = useAuth();
   const { profile, refresh } = useUserData();
   const [fullName, setFullName] = useState(profile?.fullName ?? "");
-  const [stage, setStage] = useState<PregnancyStage>("not_specified");
+  const [stageDraft, setStage] = useState<PregnancyStage | null>(null);
+  const stage = stageDraft ?? profile?.stage ?? "not_specified";
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dueDateDraft, setDueDate] = useState<string | undefined>();
+  const dueDate = dueDateDraft ?? profile?.dueDate ?? "";
+  const [birthDateDraft, setBirthDate] = useState<string | undefined>();
+  const birthDate = birthDateDraft ?? profile?.postpartumStartDate ?? "";
+  const [error, setError] = useState<string | null>(null);
+  const busy = useRef(false);
   const hasProfileName = Boolean(profile?.fullName);
 
-  useEffect(() => {
-    if (profile?.fullName) setFullName(profile.fullName);
-  }, [profile?.fullName]);
-
   async function handleContinue() {
-    if (!user) return;
+    if (!user || busy.current) return;
+    setError(null);
     const nextFullName = (fullName.trim() || profile?.fullName || "").trim();
 
     if (!nextFullName) {
@@ -37,6 +42,9 @@ export default function IntakeBasicScreen() {
       return;
     }
 
+    const dateError = stage === "pregnant" ? validIntakeDate(dueDate, "due") : stage === "postpartum" ? validIntakeDate(birthDate, "birth") : null;
+    if (dateError) { setError(dateError); return; }
+    busy.current = true;
     setIsSubmitting(true);
     try {
       const { error } = await supabase
@@ -45,8 +53,10 @@ export default function IntakeBasicScreen() {
           id: user.id,
           full_name: nextFullName,
           stage: stage,
+          due_date: stage === "pregnant" ? dueDate.trim() || null : null,
+          postpartum_start_date: stage === "postpartum" ? birthDate.trim() || null : null,
           updated_at: new Date().toISOString(),
-        });
+        }).select("id").single();
 
       if (error) throw error;
 
@@ -54,8 +64,9 @@ export default function IntakeBasicScreen() {
       router.push("/(auth)/intake-pregnancy");
     } catch (err) {
       console.error("Error updating profile:", err);
-      Alert.alert("Error", "Could not save your profile. Please try again.");
+      setError("Could not save your profile. Your input is still here; please try again.");
     } finally {
+      busy.current = false;
       setIsSubmitting(false);
     }
   }
@@ -96,12 +107,17 @@ export default function IntakeBasicScreen() {
                 label={s.label}
                 variant={stage === s.value ? "primary" : "secondary"}
                 onPress={() => setStage(s.value)}
+                disabled={isSubmitting}
                 style={styles.stageButton}
               />
             ))}
           </View>
         </View>
 
+        {stage === "pregnant" && <TextField label="Expected due date" accessibilityLabel="Expected due date" value={dueDate} onChangeText={setDueDate} placeholder="YYYY-MM-DD" maxLength={10} editable={!isSubmitting} />}
+        {stage === "postpartum" && <TextField label="When did you give birth?" accessibilityLabel="Birth date" value={birthDate} onChangeText={setBirthDate} placeholder="YYYY-MM-DD" maxLength={10} editable={!isSubmitting} />}
+        {stage !== "planning" && stage !== "not_specified" && <Body size="sm" tone="muted">Leave the date blank if you are unsure. You can update it later.</Body>}
+        {error && <Text accessibilityRole="alert" style={{ color: "#FFE8E8", lineHeight: 24 }}>{error}</Text>}
         <Button
           label={isSubmitting ? "Saving..." : "Continue"}
           onPress={handleContinue}
@@ -125,7 +141,7 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 36,
     lineHeight: 44,
-    fontFamily: typography.family.display,
+    fontFamily: typography.family.brand,
   },
   form: {
     gap: 37,

@@ -1,0 +1,17 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="1631.7" height="1629.4" viewBox="0 0 1631.7 1629.4" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Rectangle 94" filter="url(#filter0_f_0_90)" style="mix-blend-mode:color-dodge">
+<path d="M261.677 785.032C261.677 495.991 495.991 261.677 785.032 261.677H846.668C1135.71 261.677 1370.02 495.991 1370.02 785.032V844.364C1370.02 1133.4 1135.71 1367.72 846.668 1367.72H785.032C495.991 1367.72 261.677 1133.4 261.677 844.364V785.032Z" fill="url(#paint0_radial_0_90)"/>
+</g>
+<defs>
+<filter id="filter0_f_0_90" x="0" y="0" width="1631.7" height="1629.4" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+<feGaussianBlur stdDeviation="130.839" result="effect1_foregroundBlur_0_90"/>
+</filter>
+<radialGradient id="paint0_radial_0_90" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(993.179 567.482) rotate(137.269) scale(514.182 515.253)">
+<stop stop-color="#7C75FF"/>
+<stop offset="1" stop-color="#484EB7" stop-opacity="0"/>
+<stop offset="1" stop-color="#9FA7FF" stop-opacity="0"/>
+</radialGradient>
+</defs>
+</svg>
