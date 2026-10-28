@@ -12,7 +12,7 @@ const menuItems: { label: string; icon: IconName; href: string; route: string }[
   { label: "Mood Tracker", icon: "happy-outline", href: "/(app)/log-mood", route: "log-mood" },
   { label: "Chatbot", icon: "chatbox-outline", href: "/(app)/chatbot", route: "chatbot" },
   { label: "Vitals Overview", icon: "heart-outline", href: "/(app)/vitals", route: "vitals" },
-  { label: "Appointment Prep", icon: "calendar-outline", href: "/(app)/doctor-prep", route: "doctor-prep" },
+  { label: "Appointment Prep", icon: "calendar-outline", href: "/(app)/appointments", route: "appointments" },
   { label: "Voice Journal", icon: "mic-outline", href: "/(app)/voice-journal", route: "voice-journal" },
   { label: "Resources", icon: "bookmark-outline", href: "/(app)/community", route: "community" },
   { label: "History", icon: "time-outline", href: "/(app)/health-log", route: "health-log" },
