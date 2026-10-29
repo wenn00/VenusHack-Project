@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   Animated,
@@ -99,14 +99,14 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
     // Reduced motion and interrupted focus/background transitions settle at the
     // target immediately, including releasing the interaction lock.
     if (!motion) {
-      transition.setValue(phase === "choosing" || phase === "returning" ? 0 : 3);
+      transition.setValue(phase === "choosing" || phase === "returning" ? 0 : 4);
       panel.setValue(phase === "selected" || phase === "selecting" ? 1 : 0);
       finish();
       return;
     }
     let animation: Animated.CompositeAnimation;
     if (phase === "selecting") {
-      animation = move(3, MOOD_TIMING.select);
+      animation = move(4, MOOD_TIMING.select);
     } else if (phase === "returning") {
       animation = Animated.sequence([revealNotes(0, 180), move(0, MOOD_TIMING.return)]);
     } else if (phase === "selected") {
@@ -187,8 +187,18 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
   const [press] = useState(() => new Animated.Value(1));
   const chosen = selected === item.mood;
   const hidden = selected !== null && !chosen;
-  const frames = moodOrbFrames(item.mood, width, chosen);
+  const frames = useMemo(() => moodOrbFrames(item.mood, width, chosen), [item.mood, width, chosen]);
   const { size } = frames;
+  const movement = useMemo(() => ({
+    opacity: transition.interpolate(smoothMoodTrack(frames.opacity)),
+    transform: [
+      // Movement begins during the initial swell; every color then shares the
+      // exact central point before the selected light opens out of it.
+      { translateX: transition.interpolate(smoothMoodTrack(frames.translateX, [0, 0.12, 1.8, 2.5, 4])) },
+      { translateY: transition.interpolate(smoothMoodTrack(frames.translateY, [0, 0.12, 1.8, 2.5, 4])) },
+      { scale: transition.interpolate(smoothMoodTrack(frames.scale)) },
+    ],
+  }), [frames, transition]);
 
   useEffect(() => {
     if (!motion) {
@@ -218,15 +228,7 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
     <Animated.View pointerEvents={hidden ? "none" : "auto"}
       accessibilityElementsHidden={hidden} importantForAccessibility={hidden ? "no-hide-descendants" : "auto"}
       testID={`mood-orb-${item.mood}`}
-      style={[styles.orbPosition, { left: frames.x, top: frames.y, width: size, height: size, zIndex: chosen ? 1 : 0,
-        opacity: transition.interpolate(smoothMoodTrack(frames.opacity)),
-        transform: [
-          // Motion begins during the initial swell, so the stages overlap.
-          { translateX: transition.interpolate(smoothMoodTrack(frames.translateX, [0, 0.12, 1.8, 3])) },
-          { translateY: transition.interpolate(smoothMoodTrack(frames.translateY, [0, 0.12, 1.8, 3])) },
-          { scale: transition.interpolate(smoothMoodTrack(frames.scale)) },
-        ],
-      }]} >
+      style={[styles.orbPosition, { left: frames.x, top: frames.y, width: size, height: size, zIndex: chosen ? 1 : 0 }, movement]} >
       <Pressable accessibilityRole="button" accessibilityLabel={`Feeling ${item.label.toLowerCase()}`}
         accessibilityState={{ selected: chosen, disabled: disabled || !!selected }} disabled={disabled || !!selected}
         onPress={onSelect} onPressIn={() => animatePress(0.98)} onPressOut={() => animatePress(1)}>
@@ -270,7 +272,7 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
           </Animated.View>
         </Animated.View>
       </Pressable>
-      <Animated.Text style={[styles.orbLabel, { top: size + 12, opacity: transition.interpolate({ inputRange: [0, 0.6, 3], outputRange: [1, 0, 0] }) }]}>{item.label}</Animated.Text>
+      <Animated.Text style={[styles.orbLabel, { top: size + 12, opacity: transition.interpolate({ inputRange: [0, 0.6, 4], outputRange: [1, 0, 0] }) }]}>{item.label}</Animated.Text>
     </Animated.View>
   );
 }

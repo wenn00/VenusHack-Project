@@ -8,14 +8,15 @@ export const MOOD_POSITIONS = {
 } as const;
 
 // The file has static storyboard frames, not exported keyframes. These timings
-// implement the user's requested anticipation → gathering → reveal sequence.
-export const MOOD_TIMING = { select: 1680, notes: 320, return: 900 };
+// implement the user's requested swell → gather → central point → reveal.
+export const MOOD_TIMING = { select: 2040, notes: 320, return: 1100 };
+export const MOOD_KEYFRAMES = [0, 0.56, 1.8, 2.5, 4];
 const CURVE_SAMPLES_PER_SEGMENT = 48;
 
 /** Sample a monotone cubic curve for native Animated interpolation. Shared
  * tangents carry velocity across frames without overshooting position/opacity.
  * The one linear animation clock drives these curves in either direction. */
-export function smoothMoodTrack(values: number[], times = [0, 0.56, 1.8, 3]) {
+export function smoothMoodTrack(values: number[], times = MOOD_KEYFRAMES) {
   const slopes = values.slice(1).map((value, index) => (value - values[index]) / (times[index + 1] - times[index]));
   const tangents = values.map((_, index) => {
     if (index === 0 || index === values.length - 1 || slopes[index - 1] * slopes[index] <= 0) return 0;
@@ -55,10 +56,11 @@ export function moodOrbFrames(mood: keyof typeof MOOD_POSITIONS, width: number, 
   const finalY = 109 - size / 2;
   return {
     size, x, y,
-    // Keep all five visible until the compact Rendering frame has been reached.
-    translateX: [0, 0, position.gatheredX * ratio - size / 2 - x, finalX - x],
-    translateY: [0, 0, position.gatheredY * ratio - size / 2 - y, finalY - y],
-    scale: [1, chosen ? 1.32 : 1, 72 / 86.4, chosen ? 181.4 / 86.4 : 0.04],
-    opacity: chosen ? [1, 1, 1, 1] : [1, 1, 1, 0],
+    // All colors reach the same small point before any fade away. The chosen
+    // light grows out of that point; the others stay there while disappearing.
+    translateX: [0, 0, position.gatheredX * ratio - size / 2 - x, finalX - x, finalX - x],
+    translateY: [0, 0, position.gatheredY * ratio - size / 2 - y, finalY - y, finalY - y],
+    scale: [1, chosen ? 1.32 : 1, 72 / 86.4, 0.04, chosen ? 181.4 / 86.4 : 0.01],
+    opacity: chosen ? [1, 1, 1, 1, 1] : [1, 1, 1, 1, 0],
   };
 }
