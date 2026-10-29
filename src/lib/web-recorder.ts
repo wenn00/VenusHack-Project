@@ -3,11 +3,13 @@
  *
  * expo-camera cannot record on web (`record()` → "not supported on web"),
  * so the web screen records the front camera with getUserMedia +
- * MediaRecorder instead. iOS Safari records MP4/H.264, Chrome on Android
- * records WebM; the backend decodes both through OpenCV's FFmpeg.
+ * MediaRecorder instead. Only MP4 is recorded (iOS Safari and current
+ * Chrome both support it): MediaRecorder WebM declares no average frame
+ * rate, OpenCV then reports roughly double the real fps, and the backend's
+ * frame timing — and so the heart rate — comes out about 2x too high.
  */
 
-const MIME_PREFERENCE = ["video/mp4", "video/webm;codecs=vp8", "video/webm"];
+const MIME_PREFERENCE = ["video/mp4"];
 
 /**
  * Low resolution on purpose: rPPG only needs the average skin colour, and

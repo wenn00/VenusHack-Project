@@ -4,16 +4,16 @@ import { fileNameForMimeType, pickRecorderMimeType } from "./web-recorder";
 const supports = (...types: string[]) => (type: string) => types.includes(type);
 
 describe("pickRecorderMimeType", () => {
-  it("prefers MP4 so iOS Safari uploads H.264 the backend already handles", () => {
+  it("records MP4, which iOS Safari and current Chrome both support", () => {
     expect(pickRecorderMimeType(supports("video/mp4", "video/webm;codecs=vp8", "video/webm"))).toBe("video/mp4");
   });
 
-  it("falls back to VP8 WebM on browsers without MP4 recording", () => {
-    expect(pickRecorderMimeType(supports("video/webm;codecs=vp8", "video/webm"))).toBe("video/webm;codecs=vp8");
-  });
-
-  it("accepts plain WebM as a last resort", () => {
-    expect(pickRecorderMimeType(supports("video/webm"))).toBe("video/webm");
+  it("refuses WebM-only browsers instead of uploading a mistimed clip", () => {
+    // Regression: MediaRecorder WebM declares no average frame rate, so
+    // OpenCV reports ~2x the real fps and the backend returned ~143 BPM for
+    // a 72 BPM pulse — a false red "contact your OB" alert. Those browsers
+    // get the "unsupported" message instead.
+    expect(pickRecorderMimeType(supports("video/webm;codecs=vp8", "video/webm"))).toBeNull();
   });
 
   it("returns null when the browser can record none of them", () => {
