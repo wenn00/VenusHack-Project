@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MOOD_POSITIONS, MOOD_TIMING, moodOrbFrames, smoothMoodTrack } from "./mood-motion";
+import { MOOD_POSITIONS, MOOD_TIMING, moodMenuVisible, moodOrbFrames, smoothMoodTrack } from "./mood-motion";
 
 const moods = Object.keys(MOOD_POSITIONS) as (keyof typeof MOOD_POSITIONS)[];
 
@@ -118,5 +118,15 @@ describe("continuous mood motion", () => {
     expect(Math.abs(speedAfter - speedBefore) / speedBefore).toBeLessThan(0.12);
     const opacity = smoothMoodTrack(frames.opacity);
     opacity.outputRange.slice(0, opacity.inputRange.indexOf(2.16) + 1).forEach(value => expect(value).toBeCloseTo(1));
+  });
+});
+
+describe("floating menu during the mood flow", () => {
+  it("steps aside while the note form is open", () => {
+    expect(moodMenuVisible("selected")).toBe(false);
+  });
+
+  it("stays available while choosing and through both transitions", () => {
+    expect((["choosing", "selecting", "returning"] as const).map(moodMenuVisible)).toEqual([true, true, true]);
   });
 });

@@ -14,6 +14,14 @@ export const MOOD_KEYFRAMES = [0, 0.48, 1.52, 2.16, 4];
 export const MOOD_POINT = MOOD_KEYFRAMES[3];
 const CURVE_SAMPLES_PER_SEGMENT = 48;
 
+export type MoodPhase = "choosing" | "selecting" | "selected" | "returning";
+
+/** The floating menu sits where the note form's Save button lands on many
+ * phone heights, so it steps aside only while that form is open. */
+export function moodMenuVisible(phase: MoodPhase) {
+  return phase !== "selected";
+}
+
 /** Sample a quintic curve for native Animated interpolation. Shared tangents
  * and zero acceleration at anchors soften the reversal at the central point.
  * The one linear animation clock drives these curves in either direction. */
