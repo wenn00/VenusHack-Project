@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MOOD_POSITIONS, moodOrbFrames } from "./mood-motion";
+import { MOOD_POSITIONS, moodOrbFrames, smoothMoodTrack } from "./mood-motion";
 
 const moods = Object.keys(MOOD_POSITIONS) as (keyof typeof MOOD_POSITIONS)[];
 
@@ -36,4 +36,46 @@ describe("mood selection storyboard", () => {
       }
     });
   }
+});
+
+describe("continuous mood motion", () => {
+  it("passes through the storyboard without overshooting any position, size, or opacity", () => {
+    for (const mood of moods) {
+      for (const chosen of [false, true]) {
+        const frames = moodOrbFrames(mood, 326, chosen);
+        for (const values of [frames.translateX, frames.translateY, frames.scale, frames.opacity]) {
+          const track = smoothMoodTrack(values);
+          expect(track.inputRange[0]).toBe(0);
+          expect(track.inputRange.at(-1)).toBe(3);
+          for (let index = 1; index < track.inputRange.length; index += 1) {
+            expect(track.inputRange[index]).toBeGreaterThan(track.inputRange[index - 1]);
+          }
+          const keyframes = [0, 0.56, 1.8, 3];
+          for (let segment = 0; segment < 3; segment += 1) {
+            const start = track.inputRange.indexOf(keyframes[segment]);
+            const end = track.inputRange.indexOf(keyframes[segment + 1]);
+            expect(track.outputRange[start]).toBeCloseTo(values[segment]);
+            for (const value of track.outputRange.slice(start, end + 1)) {
+              expect(value).toBeGreaterThanOrEqual(Math.min(values[segment], values[segment + 1]) - 1e-9);
+              expect(value).toBeLessThanOrEqual(Math.max(values[segment], values[segment + 1]) + 1e-9);
+            }
+          }
+          expect(track.outputRange.at(-1)).toBeCloseTo(values[3]);
+        }
+      }
+    }
+  });
+
+  it("carries movement through the gathering frame while delaying other colors' fade", () => {
+    const frames = moodOrbFrames("good", 326, false);
+    const track = smoothMoodTrack(frames.translateX, [0, 0.12, 1.8, 3]);
+    const gather = track.inputRange.indexOf(1.8);
+    const speedBefore = (track.outputRange[gather] - track.outputRange[gather - 1]) / (track.inputRange[gather] - track.inputRange[gather - 1]);
+    const speedAfter = (track.outputRange[gather + 1] - track.outputRange[gather]) / (track.inputRange[gather + 1] - track.inputRange[gather]);
+    expect(speedBefore).toBeGreaterThan(10);
+    expect(speedAfter).toBeGreaterThan(10);
+    expect(Math.abs(speedAfter - speedBefore) / speedBefore).toBeLessThan(0.12);
+    const opacity = smoothMoodTrack(frames.opacity);
+    opacity.outputRange.slice(0, opacity.inputRange.indexOf(1.8) + 1).forEach(value => expect(value).toBeCloseTo(1));
+  });
 });
