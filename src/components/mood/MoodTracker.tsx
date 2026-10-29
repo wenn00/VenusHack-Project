@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   Animated,
@@ -16,7 +16,7 @@ import { useFocusEffect } from "expo-router";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 import { Mood } from "@/types";
 import { colors, radius, typography } from "@/theme";
-import { MOOD_TIMING, moodOrbFrames } from "./mood-motion";
+import { MOOD_TIMING, moodOrbFrames, smoothMoodTrack } from "./mood-motion";
 
 const OPTIONS: { mood: Mood; label: string; color: string; message: string }[] = [
   { mood: "great", label: "Great", color: "#FED986", message: "Glad to see it" },
@@ -91,7 +91,7 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
       }
     };
     const move = (toValue: number, duration: number) => Animated.timing(transition, {
-      toValue, duration, easing: Easing.inOut(Easing.cubic), useNativeDriver: true,
+      toValue, duration, easing: Easing.linear, useNativeDriver: true,
     });
     const revealNotes = (toValue: number, duration: number) => Animated.timing(panel, {
       toValue, duration, easing: Easing.out(Easing.cubic), useNativeDriver: false,
@@ -99,19 +99,14 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
     // Reduced motion and interrupted focus/background transitions settle at the
     // target immediately, including releasing the interaction lock.
     if (!motion) {
-      transition.setValue(phase === "choosing" || phase === "returning" ? 0 : 3);
+      transition.setValue(phase === "choosing" || phase === "returning" ? 0 : 4);
       panel.setValue(phase === "selected" || phase === "selecting" ? 1 : 0);
       finish();
       return;
     }
     let animation: Animated.CompositeAnimation;
     if (phase === "selecting") {
-      animation = Animated.sequence([
-        move(1, MOOD_TIMING.anticipate),
-        move(2, MOOD_TIMING.gather),
-        Animated.delay(MOOD_TIMING.hold),
-        move(3, MOOD_TIMING.reveal),
-      ]);
+      animation = move(4, MOOD_TIMING.select);
     } else if (phase === "returning") {
       animation = Animated.sequence([revealNotes(0, 180), move(0, MOOD_TIMING.return)]);
     } else if (phase === "selected") {
@@ -138,7 +133,7 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
       <Animated.View style={[styles.cluster, { width: clusterWidth, height: panel.interpolate({ inputRange: [0, 1], outputRange: [clusterWidth + 38, 218] }) }]}>
         {OPTIONS.map((item, index) => (
           <MoodOrb key={item.mood} item={item} index={index} width={clusterWidth}
-            transition={transition} motion={motion} breathing={phase === "choosing" || phase === "selected"}
+            transition={transition} motion={motion} breathing={phase !== "selected" || selected === item.mood}
             selected={selected} disabled={isSaving || phase !== "choosing"} onSelect={() => {
               if (transitionLocked.current || isSaving || phase !== "choosing") return;
               transitionLocked.current = true;
@@ -188,11 +183,22 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
   motion: boolean; breathing: boolean; selected: Mood | null; disabled: boolean; onSelect: () => void;
 }) {
   const [breath] = useState(() => new Animated.Value(0));
+  const breathStarted = useRef(false);
   const [press] = useState(() => new Animated.Value(1));
   const chosen = selected === item.mood;
   const hidden = selected !== null && !chosen;
-  const frames = moodOrbFrames(item.mood, width, chosen);
+  const frames = useMemo(() => moodOrbFrames(item.mood, width, chosen), [item.mood, width, chosen]);
   const { size } = frames;
+  const movement = useMemo(() => ({
+    opacity: transition.interpolate(smoothMoodTrack(frames.opacity)),
+    transform: [
+      // Movement begins during the initial swell; every color then shares the
+      // exact central point before the selected light opens out of it.
+      { translateX: transition.interpolate(smoothMoodTrack(frames.translateX, [0, 0.12, 1.8, 2.5, 4])) },
+      { translateY: transition.interpolate(smoothMoodTrack(frames.translateY, [0, 0.12, 1.8, 2.5, 4])) },
+      { scale: transition.interpolate(smoothMoodTrack(frames.scale)) },
+    ],
+  }), [frames, transition]);
 
   useEffect(() => {
     if (!motion) {
@@ -200,18 +206,19 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
       breath.setValue(0);
       return;
     }
-    // Freeze the current breath during selection, rather than shrinking the
-    // light to its minimum just before the anticipation starts.
-    if (!breathing || hidden) return;
+    // Keep breathing through the transition. Pause only orbs that have fully
+    // disappeared, preserving their current breath for reselection.
+    if (!breathing) return;
     const cycle = Animated.loop(Animated.sequence([
-      Animated.timing(breath, { toValue: 1, duration: 2400 + index * 110, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
-      Animated.timing(breath, { toValue: 0, duration: 2400 + index * 110, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
+      Animated.timing(breath, { toValue: 1, duration: 2600 + index * 90, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
+      Animated.timing(breath, { toValue: 0, duration: 3400 + index * 120, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
     ]), { resetBeforeIteration: false });
-    const timer = setTimeout(() => cycle.start(), index * 220);
+    const timer = setTimeout(() => {
+      breathStarted.current = true;
+      cycle.start();
+    }, breathStarted.current ? 0 : index * 180);
     return () => { clearTimeout(timer); cycle.stop(); };
-  }, [breath, motion, breathing, hidden, index]);
-
-
+  }, [breath, motion, breathing, index]);
 
   const animatePress = (value: number) => Animated.timing(press, {
     toValue: value, duration: motion ? 160 : 0, easing: Easing.out(Easing.quad), useNativeDriver: true,
@@ -221,25 +228,18 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
     <Animated.View pointerEvents={hidden ? "none" : "auto"}
       accessibilityElementsHidden={hidden} importantForAccessibility={hidden ? "no-hide-descendants" : "auto"}
       testID={`mood-orb-${item.mood}`}
-      style={[styles.orbPosition, { left: frames.x, top: frames.y, width: size, height: size, zIndex: chosen ? 1 : 0,
-        opacity: transition.interpolate({ inputRange: [0, 1, 2, 3], outputRange: frames.opacity }),
-        transform: [
-          { translateX: transition.interpolate({ inputRange: [0, 1, 2, 3], outputRange: frames.translateX }) },
-          { translateY: transition.interpolate({ inputRange: [0, 1, 2, 3], outputRange: frames.translateY }) },
-          { scale: transition.interpolate({ inputRange: [0, 1, 2, 3], outputRange: frames.scale }) },
-        ],
-      }]} >
+      style={[styles.orbPosition, { left: frames.x, top: frames.y, width: size, height: size, zIndex: chosen ? 1 : 0 }, movement]} >
       <Pressable accessibilityRole="button" accessibilityLabel={`Feeling ${item.label.toLowerCase()}`}
         accessibilityState={{ selected: chosen, disabled: disabled || !!selected }} disabled={disabled || !!selected}
-        onPress={onSelect} onPressIn={() => animatePress(0.94)} onPressOut={() => animatePress(1)}>
+        onPress={onSelect} onPressIn={() => animatePress(0.98)} onPressOut={() => animatePress(1)}>
         <Animated.View style={{ width: size, height: size, transform: [{ scale: press }] }}>
           {/* Both layers fade to transparent: no opaque disk or hard circular edge.
               Keep the layout/hit target fixed while the light breathes around it. */}
           <Animated.View pointerEvents="none" style={[styles.glowLayer, {
             width: size * 1.64, height: size * 1.64,
             left: -size * 0.32, top: -size * 0.32,
-            opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.22, 0.46] }),
-            transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.84, 1.18] }) }],
+            opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.52] }),
+            transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.78, 1.26] }) }],
           }]}>
             <Svg width="100%" height="100%" viewBox="0 0 100 100">
               <Defs><RadialGradient id={`mood-glow-${item.mood}`} cx="50%" cy="50%" r="50%">
@@ -255,8 +255,8 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
           <Animated.View pointerEvents="none" style={[styles.glowLayer, {
             width: size * 1.26, height: size * 1.26,
             left: -size * 0.13, top: -size * 0.13,
-            opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.84, 1] }),
-            transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1.12] }) }],
+            opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] }),
+            transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.84, 1.16] }) }],
           }]}>
             <Svg width="100%" height="100%" viewBox="0 0 100 100">
               <Defs><RadialGradient id={`mood-core-${item.mood}`} cx="50%" cy="50%" r="50%">
@@ -272,7 +272,7 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
           </Animated.View>
         </Animated.View>
       </Pressable>
-      <Animated.Text style={[styles.orbLabel, { top: size + 12, opacity: transition.interpolate({ inputRange: [0, 0.6, 3], outputRange: [1, 0, 0] }) }]}>{item.label}</Animated.Text>
+      <Animated.Text style={[styles.orbLabel, { top: size + 12, opacity: transition.interpolate({ inputRange: [0, 0.6, 4], outputRange: [1, 0, 0] }) }]}>{item.label}</Animated.Text>
     </Animated.View>
   );
 }
