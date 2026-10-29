@@ -35,6 +35,19 @@ describe("parseRppgErrorBody", () => {
     expect(parseRppgErrorBody(body)).toEqual({ code: "FACE_NOT_DETECTED", message: "No face." });
   });
 
+  it("recognises the busy-server rejection from the job gate", () => {
+    const body = {
+      detail: {
+        code: "SERVER_BUSY",
+        message: "Someone else is measuring right now. Please try again in a minute.",
+      },
+    };
+    expect(parseRppgErrorBody(body)).toEqual({
+      code: "SERVER_BUSY",
+      message: "Someone else is measuring right now. Please try again in a minute.",
+    });
+  });
+
   it("degrades to a generic server error for junk bodies", () => {
     expect(parseRppgErrorBody(null)).toEqual({ code: "INTERNAL_ERROR", message: "Server error" });
     expect(parseRppgErrorBody("<html>")).toEqual({ code: "INTERNAL_ERROR", message: "Server error" });

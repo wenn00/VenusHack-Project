@@ -278,9 +278,11 @@ export default function CameraRppgScreen() {
         <Body tone="muted" size="sm">
           {errorCode === "FACE_NOT_DETECTED" || errorCode === "LOW_QUALITY_VIDEO"
             ? "Keep your face inside the circle and try again in bright, even light."
-            : serverState === "unreachable"
-              ? "The analysis server isn't reachable. Check your internet, then try again."
-              : "Try again — the analysis server should be warm now."}
+            : errorCode === "SERVER_BUSY"
+              ? "Someone else is measuring right now. Wait a minute, then try again."
+              : serverState === "unreachable"
+                ? "The analysis server isn't reachable. Check your internet, then try again."
+                : "Try again — the analysis server should be warm now."}
         </Body>
         <Button
           label="Try again"
