@@ -138,7 +138,7 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
       <Animated.View style={[styles.cluster, { width: clusterWidth, height: panel.interpolate({ inputRange: [0, 1], outputRange: [clusterWidth + 38, 218] }) }]}>
         {OPTIONS.map((item, index) => (
           <MoodOrb key={item.mood} item={item} index={index} width={clusterWidth}
-            transition={transition} motion={motion && (phase === "choosing" || phase === "selected")}
+            transition={transition} motion={motion} breathing={phase === "choosing" || phase === "selected"}
             selected={selected} disabled={isSaving || phase !== "choosing"} onSelect={() => {
               if (transitionLocked.current || isSaving || phase !== "choosing") return;
               transitionLocked.current = true;
@@ -183,9 +183,9 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
   );
 }
 
-function MoodOrb({ item, index, width, motion, selected, disabled, onSelect, transition }: {
+function MoodOrb({ item, index, width, motion, breathing, selected, disabled, onSelect, transition }: {
   item: typeof OPTIONS[number]; index: number; width: number; transition: Animated.Value;
-  motion: boolean; selected: Mood | null; disabled: boolean; onSelect: () => void;
+  motion: boolean; breathing: boolean; selected: Mood | null; disabled: boolean; onSelect: () => void;
 }) {
   const [breath] = useState(() => new Animated.Value(0));
   const [press] = useState(() => new Animated.Value(1));
@@ -195,18 +195,21 @@ function MoodOrb({ item, index, width, motion, selected, disabled, onSelect, tra
   const { size } = frames;
 
   useEffect(() => {
-    if (!motion || hidden) {
+    if (!motion) {
       breath.stopAnimation();
       breath.setValue(0);
       return;
     }
+    // Freeze the current breath during selection, rather than shrinking the
+    // light to its minimum just before the anticipation starts.
+    if (!breathing || hidden) return;
     const cycle = Animated.loop(Animated.sequence([
       Animated.timing(breath, { toValue: 1, duration: 2400 + index * 110, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
       Animated.timing(breath, { toValue: 0, duration: 2400 + index * 110, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
     ]));
     const timer = setTimeout(() => cycle.start(), index * 220);
-    return () => { clearTimeout(timer); cycle.stop(); breath.setValue(0); };
-  }, [breath, motion, hidden, index]);
+    return () => { clearTimeout(timer); cycle.stop(); };
+  }, [breath, motion, breathing, hidden, index]);
 
 
 
