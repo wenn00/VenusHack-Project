@@ -27,6 +27,7 @@ import { BpRow, exportDoctorSummary, MoodRow } from "@/services/pdf";
 import { supabase } from "@/services/supabase";
 import { colors, spacing } from "@/theme";
 
+import { PopupBlockedError } from "@/lib/print-window";
 import { readSavedSummary } from "@/lib/saved-summary";
 import { validAppointmentId } from "@/lib/appointments";
 
@@ -148,7 +149,14 @@ export default function DoctorPrepScreen() {
       });
     } catch (err) {
       console.warn("[doctor-prep] export failed", err);
-      Alert.alert("Export failed", "The PDF could not be exported. Please try again.");
+      if (err instanceof PopupBlockedError) {
+        Alert.alert(
+          "Allow pop-ups",
+          "Your browser blocked the summary window. Allow pop-ups for this site, then tap Export again.",
+        );
+      } else {
+        Alert.alert("Export failed", "The PDF could not be exported. Please try again.");
+      }
     } finally {
       setIsExporting(false);
     }

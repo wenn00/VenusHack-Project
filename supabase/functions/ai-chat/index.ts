@@ -4,19 +4,22 @@
  * Keeps the ZotGPT key out of the app bundle: the app sends chat messages
  * here via `supabase.functions.invoke`, and this function adds the key.
  *
- * Only signed-in, non-anonymous users may call it. Anonymous sign-ins are
- * enabled for the dev "skip" login, and anyone holding the (public)
- * publishable key can mint an anonymous session — accepting those would
- * re-expose the quota the key move is meant to protect.
+ * Email users are always served. Anonymous sessions are conference demo
+ * visitors: anyone holding the (public) publishable key can mint one, so
+ * they are served only while DEMO_AI_UNTIL is in the future and for at most
+ * DEMO_AI_CALL_LIMIT calls each (counted in public.demo_ai_usage).
  *
  * The model is fixed server-side and request size / reply length are
  * capped, so a signed-in user can't turn the proxy into an unbounded GPT.
  *
- * Secrets: ZOTGPT_API_KEY (required), ZOTGPT_MODEL (optional).
+ * Secrets: ZOTGPT_API_KEY (required), ZOTGPT_MODEL (optional),
+ * DEMO_AI_UNTIL (ISO timestamp; unset = demo AI closed),
+ * DEMO_ZOTGPT_MODEL (optional cheaper model for demo visitors).
  */
 
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
+import { demoQuotaExceeded, demoWindowOpen, isGatewayBusy, selectModel } from "./demo-policy.ts";
 
 const GATEWAY_URL = "https://api.portkey.ai/v1/chat/completions";
 const DEFAULT_MODEL = "@zotgpt-api-azure/gpt-4o";
@@ -90,8 +93,21 @@ export default {
     if (req.method !== "POST") {
       return errorResponse(405, "method_not_allowed", "Use POST.");
     }
-    if (ctx.jwtClaims?.is_anonymous === true) {
-      return errorResponse(403, "anonymous_not_allowed", "Sign in with your email to use AI features.");
+    const isAnonymous = ctx.jwtClaims?.is_anonymous === true;
+    if (isAnonymous) {
+      if (!demoWindowOpen(Deno.env.get("DEMO_AI_UNTIL"), new Date())) {
+        return errorResponse(403, "demo_closed", "The demo's AI is closed.");
+      }
+      const { data: calls, error: usageError } = await ctx.supabaseAdmin.rpc("increment_demo_ai_usage", {
+        p_user_id: ctx.jwtClaims?.sub,
+      });
+      if (usageError || typeof calls !== "number") {
+        console.error("[ai-chat] demo usage update failed:", usageError);
+        return errorResponse(503, "demo_unavailable", "Demo AI is unavailable.");
+      }
+      if (demoQuotaExceeded(calls)) {
+        return errorResponse(429, "demo_quota_exhausted", "This demo visitor has used all AI calls.");
+      }
     }
 
     const apiKey = Deno.env.get("ZOTGPT_API_KEY");
@@ -110,7 +126,11 @@ export default {
     if (parsed instanceof Response) return parsed;
 
     const upstreamBody: Record<string, unknown> = {
-      model: Deno.env.get("ZOTGPT_MODEL") ?? DEFAULT_MODEL,
+      model: selectModel(
+        isAnonymous,
+        { model: Deno.env.get("ZOTGPT_MODEL"), demoModel: Deno.env.get("DEMO_ZOTGPT_MODEL") },
+        DEFAULT_MODEL,
+      ),
       messages: parsed.messages,
       temperature: parsed.temperature,
       max_completion_tokens: parsed.maxTokens,
@@ -143,6 +163,9 @@ export default {
       // here and give the app only a stable code.
       const detail = await upstream.text().catch(() => "");
       console.error(`[ai-chat] gateway ${upstream.status}: ${detail.slice(0, 500)}`);
+      if (isGatewayBusy(upstream.status)) {
+        return errorResponse(429, "ai_busy", "AI service is busy. Try again shortly.");
+      }
       return errorResponse(502, "upstream_error", "AI service is unavailable.");
     }
 

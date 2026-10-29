@@ -12,6 +12,8 @@
 
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import { Platform } from "react-native";
+import { printHtmlInNewWindow } from "@/lib/print-window";
 
 export interface BpRow {
   measuredAt: string;
@@ -47,6 +49,11 @@ export interface DoctorSummaryDocument {
 
 export async function exportDoctorSummary(doc: DoctorSummaryDocument): Promise<void> {
   const html = renderDoctorSummaryHtml(doc);
+  if (Platform.OS === "web") {
+    // No await before this: the tab must open inside the user's tap.
+    printHtmlInNewWindow(html, () => window.open("", "_blank"));
+    return;
+  }
   const { uri } = await Print.printToFileAsync({ html, base64: false });
   if (await Sharing.isAvailableAsync()) {
     await Sharing.shareAsync(uri, { dialogTitle: "Share with your provider" });

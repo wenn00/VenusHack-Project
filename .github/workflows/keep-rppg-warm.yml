@@ -1,0 +1,24 @@
+name: Keep rPPG warm (event day)
+
+# Render's free dyno sleeps after ~15 idle minutes and then takes 70-90 s
+# to wake. During the conference (Fri 2026-10-30, 07:00-23:55 PDT = UTC-7)
+# ping it every 5 minutes; the short cadence absorbs Actions' schedule delays.
+on:
+  schedule:
+    - cron: "*/5 14-23 30 10 *"
+    - cron: "*/5 0-6 31 10 *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /health
+        run: |
+          # The cron matches Oct 30/31 every year; only the event year pings.
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%Y)" != "2026" ]; then
+            echo "Not the event year; skipping."
+            exit 0
+          fi
+          curl -fsS --max-time 120 https://venushack-rppg.onrender.com/health

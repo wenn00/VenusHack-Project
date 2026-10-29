@@ -62,3 +62,26 @@ def test_measure_maps_rppg_error_to_envelope(monkeypatch):
             "message": "Couldn't reliably track a face in the video.",
         }
     }
+
+
+def test_measure_rejects_when_server_is_busy(monkeypatch):
+    # With one measurement running and one waiting, a third caller must get
+    # an immediate, recognisable "busy" instead of a 90 s+ timeout.
+    from job_gate import GateFull
+
+    class FullGate:
+        def slot(self):
+            raise GateFull()
+
+    called = []
+    monkeypatch.setattr(main, "gate", FullGate())
+    monkeypatch.setattr(main, "process_video", lambda path: called.append(path))
+    resp = _post_video(b"fake-bytes")
+    assert resp.status_code == 429
+    assert resp.json() == {
+        "detail": {
+            "code": "SERVER_BUSY",
+            "message": "Someone else is measuring right now. Please try again in a minute.",
+        }
+    }
+    assert called == []

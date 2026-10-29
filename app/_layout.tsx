@@ -6,7 +6,7 @@
 import { Slot, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import { useEffect } from "react";
-import { StyleSheet, View } from "react-native";
+import { Alert, Platform, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -16,6 +16,12 @@ import { Heading } from "@/components/ui/Heading";
 import { Body } from "@/components/ui/Body";
 import { Button } from "@/components/ui/Button";
 import { UserDataProvider, useUserData } from "@/contexts/UserDataContext";
+import { installWebAlert } from "@/lib/web-alert";
+
+// react-native-web's Alert is a no-op; route it to the browser's dialogs.
+if (Platform.OS === "web") {
+  installWebAlert(Alert, window);
+}
 
 function RootGate() {
   const { session, isLoading: isAuthLoading } = useAuth();

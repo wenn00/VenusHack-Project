@@ -56,3 +56,6 @@ scripts/
 
 expo-env.d.ts
 # @end expo-cli
+
+# Vercel CLI project link (local only)
+.vercel

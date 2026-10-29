@@ -12,8 +12,9 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/services/supabase";
 import { generateLiveVitals } from "@/lib/mock-data";
-import { seedDemoData } from "@/lib/seed-demo";
-import { shouldSeedDemoData } from "@/lib/seed-policy";
+import { seedDemoData, seedDemoPersona } from "@/lib/seed-demo";
+import { createSeedCoordinator } from "@/lib/seed-coordinator";
+import { planDemoSeed, planHasWork } from "@/lib/seed-policy";
 import { summarizeKpin } from "@/lib/kpin";
 import { evaluateBaselineRisk } from "@/lib/risk-analysis";
 import {
@@ -61,10 +62,10 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Demo body data is seeded at most once per provider mount. The empty-data
-  // check below is itself idempotent, but this ref also blocks a concurrent
-  // double-seed if refresh() is somehow called twice in flight.
-  const seedAttemptedRef = useRef(false);
+  // The demo persona is seeded at most once per user per provider mount, and
+  // overlapping refreshes (auth re-parses the session on tab refocus) wait
+  // for an in-flight seed instead of publishing the empty pre-seed rows.
+  const [seedCoordinator] = useState(createSeedCoordinator);
 
   // Monotonic sequence for refresh calls: overlapping refreshes (the user
   // effect racing a screen's manual refresh, or a fast account switch) must
@@ -83,13 +84,15 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
       setLoadedUserId(null);
       setLoadError(null);
       // Allow a different account signed in later to be seeded too.
-      seedAttemptedRef.current = false;
+      seedCoordinator.reset();
       return;
     }
 
     setIsLoading(true);
     setLoadError(null);
     try {
+      await seedCoordinator.settled(user.id);
+
       // Fan out the queries in parallel; RLS scopes them to this user.
       const fetchAll = () =>
         Promise.all([
@@ -128,12 +131,24 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
       };
       verifyQueries();
 
-      // A fresh ANONYMOUS account gets demo body data (BP + rPPG vitals)
-      // seeded once, then re-fetched so the screens render with it. Real
-      // (email) accounts must never receive fabricated readings.
-      if (!seedAttemptedRef.current && shouldSeedDemoData(user, (bpRes.data ?? []).length)) {
-        seedAttemptedRef.current = true;
-        await seedDemoData(user.id);
+      // A fresh ANONYMOUS (demo) account gets the demo persona — profile,
+      // intake history, moods and body data — seeded once, per missing part,
+      // then re-fetched so RootGate routes straight to the dashboard. Real
+      // (email) accounts must never receive fabricated data.
+      const seedPlan = planDemoSeed(user, {
+        profileComplete:
+          Boolean(profileRes.data?.full_name) &&
+          (profileRes.data?.stage ?? "not_specified") !== "not_specified",
+        hasPregnancyHistory: Boolean(pregRes.data),
+        hasFamilyHistory: Boolean(familyRes.data),
+        bpCount: (bpRes.data ?? []).length,
+        moodCount: (moodRes.data ?? []).length,
+      });
+      if (planHasWork(seedPlan)) {
+        await seedCoordinator.runOnce(user.id, async () => {
+          await seedDemoPersona(user.id, seedPlan);
+          if (seedPlan.bodyData) await seedDemoData(user.id);
+        });
         [profileRes, pregRes, familyRes, bpRes, moodRes] = await fetchAll();
         verifyQueries();
       }
@@ -157,12 +172,12 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       }
     }
-  }, [user]);
+  }, [user, seedCoordinator]);
 
   useEffect(() => {
     setActiveEvaluations([]);
-    seedAttemptedRef.current = false;
-  }, [user?.id]);
+    seedCoordinator.reset();
+  }, [user?.id, seedCoordinator]);
 
   useEffect(() => {
     refresh();

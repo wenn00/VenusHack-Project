@@ -18,6 +18,7 @@ const KNOWN_CODES: RppgErrorCode[] = [
   "LOW_QUALITY_VIDEO",
   "INTERNAL_ERROR",
   "TIMEOUT",
+  "SERVER_BUSY",
 ];
 
 const FALLBACK = { code: "INTERNAL_ERROR" as RppgErrorCode, message: "Server error" };
