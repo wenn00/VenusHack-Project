@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   Animated,
@@ -16,13 +16,14 @@ import { useFocusEffect } from "expo-router";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 import { Mood } from "@/types";
 import { colors, radius, typography } from "@/theme";
+import { MOOD_TIMING, moodOrbFrames } from "./mood-motion";
 
-const OPTIONS: { mood: Mood; label: string; color: string; message: string; x: number; y: number }[] = [
-  { mood: "great", label: "Great", color: "#FED986", message: "Glad to see it", x: 0.5, y: 0 },
-  { mood: "good", label: "Good", color: "#95CDF1", message: "Enjoy this moment", x: 0, y: 0.32 },
-  { mood: "okay", label: "Okay", color: "#878EF1", message: "It's okay to just be", x: 1, y: 0.32 },
-  { mood: "low", label: "Low", color: "#FFC78D", message: "Take it gently", x: 0.21, y: 0.74 },
-  { mood: "bad", label: "Struggling", color: "#FE8C6D", message: "You don't have to carry it alone", x: 0.83, y: 0.74 },
+const OPTIONS: { mood: Mood; label: string; color: string; message: string }[] = [
+  { mood: "great", label: "Great", color: "#FED986", message: "Glad to see it" },
+  { mood: "good", label: "Good", color: "#95CDF1", message: "Enjoy this moment" },
+  { mood: "okay", label: "Okay", color: "#878EF1", message: "It's okay to just be" },
+  { mood: "low", label: "Low", color: "#FFC78D", message: "Take it gently" },
+  { mood: "bad", label: "Struggling", color: "#FE8C6D", message: "You don't have to carry it alone" },
 ];
 
 /** Motion stays off until accessibility preferences are known. */
@@ -69,26 +70,60 @@ interface Props {
 export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
   const [selected, setSelected] = useState<Mood | null>(null);
   const [note, setNote] = useState("");
-  const [returningToChoices, setReturningToChoices] = useState(false);
+  const [phase, setPhase] = useState<"choosing" | "selecting" | "selected" | "returning">("choosing");
+  const transitionLocked = useRef(false);
   const motion = useMoodMotion();
   const { width } = useWindowDimensions();
   const clusterWidth = Math.min(334, Math.max(220, width - 64));
-  const orbSize = clusterWidth * (86.4 / 334);
-  const option = OPTIONS.find(item => item.mood === selected);
+  const option = phase === "selected" || phase === "returning" ? OPTIONS.find(item => item.mood === selected) : undefined;
+  const [transition] = useState(() => new Animated.Value(0));
   const [panel] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
-    const animation = Animated.timing(panel, {
-      toValue: selected ? 1 : 0,
-      duration: motion ? 600 : 0,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
+    let cancelled = false;
+    const finish = () => {
+      if (cancelled) return;
+      transitionLocked.current = false;
+      if (phase === "selecting") setPhase("selected");
+      if (phase === "returning") {
+        setSelected(null);
+        setPhase("choosing");
+      }
+    };
+    const move = (toValue: number, duration: number) => Animated.timing(transition, {
+      toValue, duration, easing: Easing.inOut(Easing.cubic), useNativeDriver: true,
     });
-    animation.start(({ finished }) => {
-      if (finished) setReturningToChoices(false);
+    const revealNotes = (toValue: number, duration: number) => Animated.timing(panel, {
+      toValue, duration, easing: Easing.out(Easing.cubic), useNativeDriver: false,
     });
-    return () => animation.stop();
-  }, [selected, motion, panel]);
+    // Reduced motion and interrupted focus/background transitions settle at the
+    // target immediately, including releasing the interaction lock.
+    if (!motion) {
+      transition.setValue(phase === "choosing" || phase === "returning" ? 0 : 3);
+      panel.setValue(phase === "selected" || phase === "selecting" ? 1 : 0);
+      finish();
+      return;
+    }
+    let animation: Animated.CompositeAnimation;
+    if (phase === "selecting") {
+      animation = Animated.sequence([
+        move(1, MOOD_TIMING.anticipate),
+        move(2, MOOD_TIMING.gather),
+        Animated.delay(MOOD_TIMING.hold),
+        move(3, MOOD_TIMING.reveal),
+      ]);
+    } else if (phase === "returning") {
+      animation = Animated.sequence([revealNotes(0, 180), move(0, MOOD_TIMING.return)]);
+    } else if (phase === "selected") {
+      animation = revealNotes(1, MOOD_TIMING.notes);
+    } else {
+      transition.setValue(0);
+      panel.setValue(0);
+      return;
+    }
+    animation.start(({ finished }) => { if (finished) finish(); });
+    return () => { cancelled = true; animation.stop(); };
+  }, [phase, motion, panel, transition]);
 
   return (
     <View style={styles.content}>
@@ -102,30 +137,41 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
 
       <Animated.View style={[styles.cluster, { width: clusterWidth, height: panel.interpolate({ inputRange: [0, 1], outputRange: [clusterWidth + 38, 218] }) }]}>
         {OPTIONS.map((item, index) => (
-          <MoodOrb key={item.mood} item={item} index={index} size={orbSize} width={clusterWidth}
-            motion={motion} selected={selected} disabled={isSaving || returningToChoices} onSelect={() => {
+          <MoodOrb key={item.mood} item={item} index={index} width={clusterWidth}
+            transition={transition} motion={motion} breathing={phase === "choosing" || phase === "selected"}
+            selected={selected} disabled={isSaving || phase !== "choosing"} onSelect={() => {
+              if (transitionLocked.current || isSaving || phase !== "choosing") return;
+              transitionLocked.current = true;
               Keyboard.dismiss();
               setSelected(item.mood);
+              setPhase("selecting");
             }} />
         ))}
       </Animated.View>
 
-      {selected && (
-        <Animated.View style={[styles.notes, {
+      {selected && (phase === "selected" || phase === "returning") && (
+        <Animated.View pointerEvents={phase === "returning" ? "none" : "auto"}
+          accessibilityElementsHidden={phase === "returning"}
+          importantForAccessibility={phase === "returning" ? "no-hide-descendants" : "auto"} style={[styles.notes, {
           opacity: panel,
           transform: [{ translateY: panel.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
         }]}>
-          <Pressable accessibilityRole="button" onPress={() => { Keyboard.dismiss(); setReturningToChoices(motion); setSelected(null); }}
-            disabled={isSaving} style={styles.changeButton}>
+          <Pressable accessibilityRole="button" onPress={() => {
+            if (transitionLocked.current || isSaving || phase !== "selected") return;
+            transitionLocked.current = true;
+            Keyboard.dismiss();
+            setPhase("returning");
+          }}
+            disabled={isSaving || phase !== "selected"} style={styles.changeButton}>
             <Text style={styles.changeText}>Choose a different feeling</Text>
           </Pressable>
           <TextInput accessibilityLabel="Notes about your mood" value={note} onChangeText={setNote}
             multiline maxLength={4000} placeholder="Leave some notes (optional)"
-            placeholderTextColor="rgba(255,255,255,0.64)" style={styles.noteInput} editable={!isSaving} />
+            placeholderTextColor="rgba(255,255,255,0.64)" style={styles.noteInput} editable={!isSaving && phase === "selected"} />
           {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
           <Pressable accessibilityRole="button" accessibilityLabel="Save mood and return home"
-            accessibilityState={{ disabled: isSaving, busy: isSaving }} disabled={isSaving}
-            onPress={() => { Keyboard.dismiss(); onSave(selected, note); }}
+            accessibilityState={{ disabled: isSaving || phase !== "selected", busy: isSaving }} disabled={isSaving || phase !== "selected"}
+            onPress={() => { if (transitionLocked.current || phase !== "selected") return; Keyboard.dismiss(); onSave(selected, note); }}
             style={({ pressed }) => [styles.saveButton, (pressed || isSaving) && styles.dimmed]}>
             <Text style={styles.saveText}>{isSaving ? "Saving…" : "Save & return home"}</Text>
           </Pressable>
@@ -137,44 +183,35 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
   );
 }
 
-function MoodOrb({ item, index, size, width, motion, selected, disabled, onSelect }: {
-  item: typeof OPTIONS[number]; index: number; size: number; width: number;
-  motion: boolean; selected: Mood | null; disabled: boolean; onSelect: () => void;
+function MoodOrb({ item, index, width, motion, breathing, selected, disabled, onSelect, transition }: {
+  item: typeof OPTIONS[number]; index: number; width: number; transition: Animated.Value;
+  motion: boolean; breathing: boolean; selected: Mood | null; disabled: boolean; onSelect: () => void;
 }) {
   const [breath] = useState(() => new Animated.Value(0));
-  const [transition] = useState(() => new Animated.Value(0));
   const [press] = useState(() => new Animated.Value(1));
-  const [lastSelection, setLastSelection] = useState<Mood | null>(null);
-  if (selected !== null && selected !== lastSelection) setLastSelection(selected);
   const chosen = selected === item.mood;
-  // Keep the previous endpoints while reversing, so the orb glides home.
-  const wasChosen = (selected ?? lastSelection) === item.mood;
   const hidden = selected !== null && !chosen;
-  const initialX = item.x * (width - size);
-  const initialY = item.y * (width - 20);
+  const frames = moodOrbFrames(item.mood, width, chosen);
+  const { size } = frames;
 
   useEffect(() => {
-    if (!motion || hidden) {
+    if (!motion) {
       breath.stopAnimation();
       breath.setValue(0);
       return;
     }
+    // Freeze the current breath during selection, rather than shrinking the
+    // light to its minimum just before the anticipation starts.
+    if (!breathing || hidden) return;
     const cycle = Animated.loop(Animated.sequence([
       Animated.timing(breath, { toValue: 1, duration: 2400 + index * 110, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
       Animated.timing(breath, { toValue: 0, duration: 2400 + index * 110, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
-    ]));
+    ]), { resetBeforeIteration: false });
     const timer = setTimeout(() => cycle.start(), index * 220);
-    return () => { clearTimeout(timer); cycle.stop(); breath.setValue(0); };
-  }, [breath, motion, hidden, index]);
+    return () => { clearTimeout(timer); cycle.stop(); };
+  }, [breath, motion, breathing, hidden, index]);
 
-  useEffect(() => {
-    const animation = Animated.timing(transition, {
-      toValue: selected ? 1 : 0, duration: motion ? 600 : 0,
-      easing: Easing.inOut(Easing.cubic), useNativeDriver: true,
-    });
-    animation.start();
-    return () => animation.stop();
-  }, [selected, motion, transition]);
+
 
   const animatePress = (value: number) => Animated.timing(press, {
     toValue: value, duration: motion ? 160 : 0, easing: Easing.out(Easing.quad), useNativeDriver: true,
@@ -183,16 +220,17 @@ function MoodOrb({ item, index, size, width, motion, selected, disabled, onSelec
   return (
     <Animated.View pointerEvents={hidden ? "none" : "auto"}
       accessibilityElementsHidden={hidden} importantForAccessibility={hidden ? "no-hide-descendants" : "auto"}
-      style={[styles.orbPosition, { left: initialX, top: initialY, width: size,
-        opacity: !wasChosen ? transition.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) : 1,
+      testID={`mood-orb-${item.mood}`}
+      style={[styles.orbPosition, { left: frames.x, top: frames.y, width: size, height: size, zIndex: chosen ? 1 : 0,
+        opacity: transition.interpolate({ inputRange: [0, 1, 2, 3], outputRange: frames.opacity }),
         transform: [
-          { translateX: transition.interpolate({ inputRange: [0, 1], outputRange: [0, wasChosen ? (width - size) / 2 - initialX : 0] }) },
-          { translateY: transition.interpolate({ inputRange: [0, 1], outputRange: [0, wasChosen ? 64 - initialY : 0] }) },
-          { scale: transition.interpolate({ inputRange: [0, 1], outputRange: [1, wasChosen ? Math.min(181, width * 0.55) / size : 0.84] }) },
+          { translateX: transition.interpolate({ inputRange: [0, 1, 2, 3], outputRange: frames.translateX }) },
+          { translateY: transition.interpolate({ inputRange: [0, 1, 2, 3], outputRange: frames.translateY }) },
+          { scale: transition.interpolate({ inputRange: [0, 1, 2, 3], outputRange: frames.scale }) },
         ],
-      }]}>
+      }]} >
       <Pressable accessibilityRole="button" accessibilityLabel={`Feeling ${item.label.toLowerCase()}`}
-        accessibilityState={{ selected: chosen, disabled }} disabled={disabled || !!selected}
+        accessibilityState={{ selected: chosen, disabled: disabled || !!selected }} disabled={disabled || !!selected}
         onPress={onSelect} onPressIn={() => animatePress(0.94)} onPressOut={() => animatePress(1)}>
         <Animated.View style={{ width: size, height: size, transform: [{ scale: press }] }}>
           {/* Both layers fade to transparent: no opaque disk or hard circular edge.
@@ -234,7 +272,7 @@ function MoodOrb({ item, index, size, width, motion, selected, disabled, onSelec
           </Animated.View>
         </Animated.View>
       </Pressable>
-      <Animated.Text style={[styles.orbLabel, { opacity: transition.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0, 0] }) }]}>{item.label}</Animated.Text>
+      <Animated.Text style={[styles.orbLabel, { top: size + 12, opacity: transition.interpolate({ inputRange: [0, 0.6, 3], outputRange: [1, 0, 0] }) }]}>{item.label}</Animated.Text>
     </Animated.View>
   );
 }
@@ -248,7 +286,7 @@ const styles = StyleSheet.create({
   cluster: { alignSelf: "center", marginTop: 40 },
   orbPosition: { position: "absolute" },
   glowLayer: { position: "absolute" },
-  orbLabel: { color: "rgba(255,255,255,0.88)", fontSize: 13, lineHeight: 20, textAlign: "center", marginTop: 12 },
+  orbLabel: { position: "absolute", width: "100%", color: "rgba(255,255,255,0.88)", fontSize: 13, lineHeight: 20, textAlign: "center" },
   notes: { width: "100%", gap: 12 },
   changeButton: { alignSelf: "center", minHeight: 44, justifyContent: "center", paddingHorizontal: 12 },
   changeText: { color: "rgba(255,255,255,0.86)", fontSize: 14, textDecorationLine: "underline" },
