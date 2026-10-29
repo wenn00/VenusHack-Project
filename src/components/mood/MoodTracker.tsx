@@ -114,7 +114,7 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
     if (phase === "selecting") {
       animation = move(4, MOOD_TIMING.select);
     } else if (phase === "returning") {
-      animation = Animated.sequence([revealNotes(0, 180), move(0, MOOD_TIMING.return)]);
+      animation = Animated.parallel([revealNotes(0, MOOD_TIMING.notes), move(0, MOOD_TIMING.return)]);
     } else if (phase === "selected") {
       animation = revealNotes(1, MOOD_TIMING.notes);
     } else {
@@ -157,7 +157,7 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
       <Animated.View style={[styles.cluster, { width: clusterWidth, height: panel.interpolate({ inputRange: [0, 1], outputRange: [clusterWidth + 38, 218] }) }]}>
         {OPTIONS.map((item, index) => (
           <MoodOrb key={item.mood} item={item} index={index} width={clusterWidth}
-            transition={transition} motion={motion} breathing={phase !== "selected" || selected === item.mood}
+            transition={transition} returning={phase === "returning"} motion={motion} breathing={phase !== "selected" || selected === item.mood}
             selected={selected} disabled={isSaving || phase !== "choosing"} onSelect={() => {
               if (transitionLocked.current || isSaving || phase !== "choosing") return;
               transitionLocked.current = true;
@@ -185,6 +185,7 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
             <Text style={styles.changeText}>Choose a different feeling</Text>
           </Pressable>
           <TextInput accessibilityLabel="Notes about your mood" value={note} onChangeText={setNote}
+            tabIndex={showDetails ? 0 : -1} focusable={showDetails}
             multiline maxLength={4000} placeholder="Leave some notes (optional)"
             placeholderTextColor="rgba(255,255,255,0.64)" style={styles.noteInput} editable={!isSaving && phase === "selected"} />
           {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
@@ -200,16 +201,16 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
   );
 }
 
-function MoodOrb({ item, index, width, motion, breathing, selected, disabled, onSelect, transition }: {
+function MoodOrb({ item, index, width, motion, breathing, selected, disabled, onSelect, transition, returning }: {
   item: typeof OPTIONS[number]; index: number; width: number; transition: Animated.Value;
-  motion: boolean; breathing: boolean; selected: Mood | null; disabled: boolean; onSelect: () => void;
+  motion: boolean; breathing: boolean; selected: Mood | null; disabled: boolean; returning: boolean; onSelect: () => void;
 }) {
   const [breath] = useState(() => new Animated.Value(0));
   const breathStarted = useRef(false);
   const [press] = useState(() => new Animated.Value(1));
   const chosen = selected === item.mood;
   const hidden = selected !== null && !chosen;
-  const frames = useMemo(() => moodOrbFrames(item.mood, width, chosen), [item.mood, width, chosen]);
+  const frames = useMemo(() => moodOrbFrames(item.mood, width, chosen, returning), [item.mood, width, chosen, returning]);
   const { size } = frames;
   const movement = useMemo(() => ({
     opacity: transition.interpolate(smoothMoodTrack(frames.opacity)),

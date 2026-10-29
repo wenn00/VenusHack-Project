@@ -42,6 +42,24 @@ describe("mood selection storyboard", () => {
 });
 
 describe("continuous mood motion", () => {
+  it("returns through the same point at the same pace without another anticipation pulse", () => {
+    expect(MOOD_TIMING.return).toBe(MOOD_TIMING.select);
+    for (const mood of moods) {
+      const forward = moodOrbFrames(mood, 326, true);
+      const returning = moodOrbFrames(mood, 326, true, true);
+      expect(returning.translateX).toEqual(forward.translateX);
+      expect(returning.translateY).toEqual(forward.translateY);
+      expect(returning.scale.slice(2)).toEqual(forward.scale.slice(2));
+      const track = smoothMoodTrack(returning.scale);
+      // Near home the light grows steadily to its resting size, never past it.
+      const home = track.outputRange.slice(0, track.inputRange.indexOf(1.52) + 1).reverse();
+      for (let index = 1; index < home.length; index += 1) {
+        expect(home[index]).toBeGreaterThanOrEqual(home[index - 1] - 1e-9);
+        expect(home[index]).toBeLessThanOrEqual(1 + 1e-9);
+      }
+    }
+  });
+
   it("opens gently from the central point and settles without a sudden size change", () => {
     const frames = moodOrbFrames("good", 334, true);
     const track = smoothMoodTrack(frames.scale);

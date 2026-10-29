@@ -9,7 +9,7 @@ export const MOOD_POSITIONS = {
 
 // The file has static storyboard frames, not exported keyframes. These timings
 // implement the user's requested swell → gather → central point → reveal.
-export const MOOD_TIMING = { select: 2400, notes: 420, return: 1300 };
+export const MOOD_TIMING = { select: 2400, notes: 420, return: 2400 };
 export const MOOD_KEYFRAMES = [0, 0.48, 1.52, 2.16, 4];
 export const MOOD_POINT = MOOD_KEYFRAMES[3];
 const CURVE_SAMPLES_PER_SEGMENT = 48;
@@ -52,7 +52,7 @@ export function smoothMoodTrack(values: number[], times = MOOD_KEYFRAMES) {
   return { inputRange, outputRange, extrapolate: "clamp" as const };
 }
 
-export function moodOrbFrames(mood: keyof typeof MOOD_POSITIONS, width: number, chosen: boolean) {
+export function moodOrbFrames(mood: keyof typeof MOOD_POSITIONS, width: number, chosen: boolean, returning = false) {
   const position = MOOD_POSITIONS[mood];
   const ratio = width / 333.6;
   const size = 86.4 * ratio;
@@ -66,7 +66,8 @@ export function moodOrbFrames(mood: keyof typeof MOOD_POSITIONS, width: number, 
     // light grows out of that point; the others stay there while disappearing.
     translateX: [0, 0, position.gatheredX * ratio - size / 2 - x, finalX - x, finalX - x],
     translateY: [0, 0, position.gatheredY * ratio - size / 2 - y, finalY - y, finalY - y],
-    scale: [1, chosen ? 1.32 : 1, 72 / 86.4, 0.04, chosen ? 181.4 / 86.4 : 0.01],
+    // Anticipation belongs to the forward tap, not to the end of the return.
+    scale: [1, chosen && !returning ? 1.32 : 1, 72 / 86.4, 0.04, chosen ? 181.4 / 86.4 : 0.01],
     opacity: chosen ? [1, 1, 1, 1, 1] : [1, 1, 1, 1, 0],
   };
 }
