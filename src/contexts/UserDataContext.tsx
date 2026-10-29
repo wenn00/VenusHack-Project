@@ -12,8 +12,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { useAuth } from "./AuthContext";
 import { supabase } from "@/services/supabase";
 import { generateLiveVitals } from "@/lib/mock-data";
-import { seedDemoData } from "@/lib/seed-demo";
-import { shouldSeedDemoData } from "@/lib/seed-policy";
+import { seedDemoData, seedDemoPersona } from "@/lib/seed-demo";
+import { planDemoSeed, planHasWork } from "@/lib/seed-policy";
 import { summarizeKpin } from "@/lib/kpin";
 import { evaluateBaselineRisk } from "@/lib/risk-analysis";
 import {
@@ -128,12 +128,23 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
       };
       verifyQueries();
 
-      // A fresh ANONYMOUS account gets demo body data (BP + rPPG vitals)
-      // seeded once, then re-fetched so the screens render with it. Real
-      // (email) accounts must never receive fabricated readings.
-      if (!seedAttemptedRef.current && shouldSeedDemoData(user, (bpRes.data ?? []).length)) {
+      // A fresh ANONYMOUS (demo) account gets the demo persona — profile,
+      // intake history, moods and body data — seeded once, per missing part,
+      // then re-fetched so RootGate routes straight to the dashboard. Real
+      // (email) accounts must never receive fabricated data.
+      const seedPlan = planDemoSeed(user, {
+        profileComplete:
+          Boolean(profileRes.data?.full_name) &&
+          (profileRes.data?.stage ?? "not_specified") !== "not_specified",
+        hasPregnancyHistory: Boolean(pregRes.data),
+        hasFamilyHistory: Boolean(familyRes.data),
+        bpCount: (bpRes.data ?? []).length,
+        moodCount: (moodRes.data ?? []).length,
+      });
+      if (!seedAttemptedRef.current && planHasWork(seedPlan)) {
         seedAttemptedRef.current = true;
-        await seedDemoData(user.id);
+        await seedDemoPersona(user.id, seedPlan);
+        if (seedPlan.bodyData) await seedDemoData(user.id);
         [profileRes, pregRes, familyRes, bpRes, moodRes] = await fetchAll();
         verifyQueries();
       }

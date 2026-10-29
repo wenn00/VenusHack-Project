@@ -7,11 +7,21 @@
  * blood-pressure history, we write a realistic 28-day trend of *body data*
  * (blood pressure + rPPG vitals) for that exact user.
  *
- * Only physical measurements are seeded here. Mood, voice journal, symptoms,
- * KPIN events, chat and the intake history are all generated live during the
- * demo, so those tables are deliberately left empty.
+ * seedDemoData writes the physical measurements; seedDemoPersona writes the
+ * rest of the conference persona (profile, intake history, a week of moods)
+ * so visitors skip onboarding. Voice journal, symptoms, KPIN events and chat
+ * are generated live by the visitor, so those tables are left empty.
  */
 
+import {
+  DEMO_FAMILY_ANSWERS,
+  DEMO_PERSONA_NAME,
+  DEMO_PREGNANCY_ANSWERS,
+  demoDueDate,
+  demoMoodRows,
+} from "@/lib/demo-persona";
+import { DemoSeedPlan } from "@/lib/seed-policy";
+import { saveIntakeHistory } from "@/services/intake";
 import { supabase } from "@/services/supabase";
 
 const DAY_MS = 86_400_000;
@@ -92,4 +102,50 @@ export async function seedDemoData(userId: string): Promise<void> {
   if (vitalsError) console.warn("[seed-demo] vitals_log insert failed:", vitalsError.message);
 
   console.log("[seed-demo] done — seeded body data for", userId);
+}
+
+/**
+ * Seed the missing parts of the demo persona for one anonymous user. The
+ * profile goes first because RootGate routes on it; like seedDemoData, each
+ * part is independent and a failure is logged rather than aborting the rest.
+ */
+export async function seedDemoPersona(
+  userId: string,
+  plan: DemoSeedPlan,
+  now: Date = new Date(),
+): Promise<void> {
+  if (plan.profile) {
+    const { error } = await supabase.from("profiles").upsert({
+      id: userId,
+      full_name: DEMO_PERSONA_NAME,
+      stage: "pregnant",
+      due_date: demoDueDate(now),
+      postpartum_start_date: null,
+      updated_at: now.toISOString(),
+    });
+    if (error) console.warn("[seed-demo] profiles upsert failed:", error.message);
+  }
+
+  if (plan.pregnancyHistory) {
+    try {
+      await saveIntakeHistory("pregnancy_history", userId, "pregnant", DEMO_PREGNANCY_ANSWERS);
+    } catch (err) {
+      console.warn("[seed-demo] pregnancy_history save failed:", (err as Error).message);
+    }
+  }
+
+  if (plan.familyHistory) {
+    try {
+      await saveIntakeHistory("family_history", userId, "pregnant", DEMO_FAMILY_ANSWERS);
+    } catch (err) {
+      console.warn("[seed-demo] family_history save failed:", (err as Error).message);
+    }
+  }
+
+  if (plan.moods) {
+    const { error } = await supabase.from("mood_entries").insert(demoMoodRows(userId, now));
+    if (error) console.warn("[seed-demo] mood_entries insert failed:", error.message);
+  }
+
+  console.log("[seed-demo] persona seeded for", userId);
 }
