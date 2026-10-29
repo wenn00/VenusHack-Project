@@ -14,9 +14,10 @@ interface ScreenProps {
   scroll?: boolean;
   contentStyle?: ViewStyle;
   fixedOverlay?: React.ReactNode;
+  showMenu?: boolean;
 }
 
-export function Screen({ children, scroll = true, contentStyle, fixedOverlay }: ScreenProps) {
+export function Screen({ children, scroll = true, contentStyle, fixedOverlay, showMenu = true }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(100, typeof contentStyle?.paddingBottom === "number" ? contentStyle.paddingBottom : 0) + insets.bottom;
   const Inner = (
@@ -34,7 +35,7 @@ export function Screen({ children, scroll = true, contentStyle, fixedOverlay }: 
         Inner
       )}
       {fixedOverlay}
-      <AppMenuButton />
+      <AppMenuButton visible={showMenu} />
     </SafeAreaView>
   );
 }
