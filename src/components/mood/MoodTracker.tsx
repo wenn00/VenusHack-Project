@@ -199,6 +199,19 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
       { scale: transition.interpolate(smoothMoodTrack(frames.scale)) },
     ],
   }), [frames, transition]);
+  const light = useMemo(() => {
+    // Keep the five choices expressive. As the selected light opens from the
+    // central point, ease its breathing down to a quiet quarter-amplitude pulse.
+    // The same envelope reverses smoothly when returning to the choices.
+    const strength = transition.interpolate(smoothMoodTrack([1, 1, 0.25], [0, 2.5, 4]));
+    const pulse = Animated.multiply(Animated.subtract(breath, 0.5), strength);
+    return {
+      haloOpacity: pulse.interpolate({ inputRange: [-0.5, 0.5], outputRange: [0.18, 0.52] }),
+      haloScale: pulse.interpolate({ inputRange: [-0.5, 0.5], outputRange: [0.78, 1.26] }),
+      coreOpacity: pulse.interpolate({ inputRange: [-0.5, 0.5], outputRange: [0.88, 1] }),
+      coreScale: pulse.interpolate({ inputRange: [-0.5, 0.5], outputRange: [0.84, 1.16] }),
+    };
+  }, [breath, transition]);
 
   useEffect(() => {
     if (!motion) {
@@ -238,8 +251,8 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
           <Animated.View pointerEvents="none" style={[styles.glowLayer, {
             width: size * 1.64, height: size * 1.64,
             left: -size * 0.32, top: -size * 0.32,
-            opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.52] }),
-            transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.78, 1.26] }) }],
+            opacity: light.haloOpacity,
+            transform: [{ scale: light.haloScale }],
           }]}>
             <Svg width="100%" height="100%" viewBox="0 0 100 100">
               <Defs><RadialGradient id={`mood-glow-${item.mood}`} cx="50%" cy="50%" r="50%">
@@ -255,8 +268,8 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
           <Animated.View pointerEvents="none" style={[styles.glowLayer, {
             width: size * 1.26, height: size * 1.26,
             left: -size * 0.13, top: -size * 0.13,
-            opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1] }),
-            transform: [{ scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.84, 1.16] }) }],
+            opacity: light.coreOpacity,
+            transform: [{ scale: light.coreScale }],
           }]}>
             <Svg width="100%" height="100%" viewBox="0 0 100 100">
               <Defs><RadialGradient id={`mood-core-${item.mood}`} cx="50%" cy="50%" r="50%">
