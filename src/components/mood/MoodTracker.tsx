@@ -206,7 +206,7 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
     const cycle = Animated.loop(Animated.sequence([
       Animated.timing(breath, { toValue: 1, duration: 2400 + index * 110, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
       Animated.timing(breath, { toValue: 0, duration: 2400 + index * 110, easing: Easing.inOut(Easing.sin), useNativeDriver: true, isInteraction: false }),
-    ]));
+    ]), { resetBeforeIteration: false });
     const timer = setTimeout(() => cycle.start(), index * 220);
     return () => { clearTimeout(timer); cycle.stop(); };
   }, [breath, motion, breathing, hidden, index]);
