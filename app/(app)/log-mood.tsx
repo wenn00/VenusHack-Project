@@ -13,6 +13,7 @@ export default function LogMoodScreen() {
   const { profile, refresh } = useUserData();
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [menuVisible, setMenuVisible] = useState(true);
   // Synchronous guard covers rapid taps before React has disabled the button.
   const savingRef = useRef(false);
   const savedRef = useRef(false);
@@ -49,8 +50,9 @@ export default function LogMoodScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <Screen contentStyle={{ paddingHorizontal: 32, gap: 0 }}>
-        <MoodTracker firstName={profile?.fullName?.trim().split(/\s+/)[0]} isSaving={isSaving} error={error} onSave={saveMood} />
+      <Screen contentStyle={{ paddingHorizontal: 32, gap: 0 }} showMenu={menuVisible}>
+        <MoodTracker firstName={profile?.fullName?.trim().split(/\s+/)[0]} isSaving={isSaving} error={error} onSave={saveMood}
+          onMenuVisibleChange={setMenuVisible} />
       </Screen>
     </KeyboardAvoidingView>
   );

@@ -16,7 +16,7 @@ import { useFocusEffect } from "expo-router";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 import { Mood } from "@/types";
 import { colors, radius, typography } from "@/theme";
-import { MOOD_KEYFRAMES, MOOD_POINT, MOOD_TIMING, moodOrbFrames, smoothMoodTrack } from "./mood-motion";
+import { MOOD_KEYFRAMES, MOOD_POINT, MOOD_TIMING, MoodPhase, moodMenuVisible, moodOrbFrames, smoothMoodTrack } from "./mood-motion";
 
 const OPTIONS: { mood: Mood; label: string; color: string; message: string }[] = [
   { mood: "great", label: "Great", color: "#FED986", message: "Glad to see it" },
@@ -64,13 +64,14 @@ interface Props {
   isSaving: boolean;
   error: string | null;
   onSave: (mood: Mood, note: string) => void;
+  onMenuVisibleChange?: (visible: boolean) => void;
 }
 
 /** Figma's five luminous emotions, with optional motion layered over a static layout. */
-export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
+export function MoodTracker({ firstName, isSaving, error, onSave, onMenuVisibleChange }: Props) {
   const [selected, setSelected] = useState<Mood | null>(null);
   const [note, setNote] = useState("");
-  const [phase, setPhase] = useState<"choosing" | "selecting" | "selected" | "returning">("choosing");
+  const [phase, setPhase] = useState<MoodPhase>("choosing");
   const transitionLocked = useRef(false);
   const motion = useMoodMotion();
   const { width } = useWindowDimensions();
@@ -84,6 +85,8 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
     question: transition.interpolate(smoothMoodTrack([1, 1, 0, 0], [0, 1.1, MOOD_POINT, 4])),
     response: transition.interpolate(smoothMoodTrack([0, 0, 1, 1], [0, MOOD_POINT, 3.6, 4])),
   }), [transition]);
+
+  useEffect(() => { onMenuVisibleChange?.(moodMenuVisible(phase)); }, [phase, onMenuVisibleChange]);
 
   useEffect(() => {
     let cancelled = false;
