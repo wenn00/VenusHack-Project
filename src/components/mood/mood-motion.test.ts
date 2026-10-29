@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MOOD_POSITIONS, moodOrbFrames, smoothMoodTrack } from "./mood-motion";
+import { MOOD_POSITIONS, MOOD_TIMING, moodOrbFrames, smoothMoodTrack } from "./mood-motion";
 
 const moods = Object.keys(MOOD_POSITIONS) as (keyof typeof MOOD_POSITIONS)[];
 
@@ -42,6 +42,26 @@ describe("mood selection storyboard", () => {
 });
 
 describe("continuous mood motion", () => {
+  it("opens gently from the central point and settles without a sudden size change", () => {
+    const frames = moodOrbFrames("good", 334, true);
+    const track = smoothMoodTrack(frames.scale);
+    const point = track.inputRange.indexOf(2.16);
+    const millisecondsPerUnit = MOOD_TIMING.select / 4;
+    const diameterAt = (time: number) => {
+      const index = track.inputRange.findIndex(value => value >= time);
+      const previous = Math.max(0, index - 1);
+      const fraction = (time - track.inputRange[previous]) / (track.inputRange[index] - track.inputRange[previous]);
+      return frames.size * (track.outputRange[previous] + fraction * (track.outputRange[index] - track.outputRange[previous]));
+    };
+    expect(diameterAt(2.16 + 80 / millisecondsPerUnit) - frames.size * frames.scale[3]).toBeLessThan(1);
+    expect(frames.size * frames.scale[4] - diameterAt(4 - 80 / millisecondsPerUnit)).toBeLessThan(1);
+    const speeds = track.outputRange.slice(point + 1).map((value, offset) => {
+      const index = point + offset + 1;
+      return frames.size * (value - track.outputRange[index - 1]) / ((track.inputRange[index] - track.inputRange[index - 1]) * millisecondsPerUnit / 1000);
+    });
+    expect(Math.max(...speeds)).toBeLessThan(320);
+  });
+
   it("passes through the storyboard without overshooting any position, size, or opacity", () => {
     for (const mood of moods) {
       for (const chosen of [false, true]) {
@@ -53,7 +73,7 @@ describe("continuous mood motion", () => {
           for (let index = 1; index < track.inputRange.length; index += 1) {
             expect(track.inputRange[index]).toBeGreaterThan(track.inputRange[index - 1]);
           }
-          const keyframes = [0, 0.56, 1.8, 2.5, 4];
+          const keyframes = [0, 0.48, 1.52, 2.16, 4];
           for (let segment = 0; segment < 4; segment += 1) {
             const start = track.inputRange.indexOf(keyframes[segment]);
             const end = track.inputRange.indexOf(keyframes[segment + 1]);
@@ -71,14 +91,14 @@ describe("continuous mood motion", () => {
 
   it("carries movement through the gathering frame while delaying other colors' fade", () => {
     const frames = moodOrbFrames("good", 326, false);
-    const track = smoothMoodTrack(frames.translateX, [0, 0.12, 1.8, 2.5, 4]);
-    const gather = track.inputRange.indexOf(1.8);
+    const track = smoothMoodTrack(frames.translateX, [0, 0.1, 1.52, 2.16, 4]);
+    const gather = track.inputRange.indexOf(1.52);
     const speedBefore = (track.outputRange[gather] - track.outputRange[gather - 1]) / (track.inputRange[gather] - track.inputRange[gather - 1]);
     const speedAfter = (track.outputRange[gather + 1] - track.outputRange[gather]) / (track.inputRange[gather + 1] - track.inputRange[gather]);
     expect(speedBefore).toBeGreaterThan(10);
     expect(speedAfter).toBeGreaterThan(10);
     expect(Math.abs(speedAfter - speedBefore) / speedBefore).toBeLessThan(0.12);
     const opacity = smoothMoodTrack(frames.opacity);
-    opacity.outputRange.slice(0, opacity.inputRange.indexOf(2.5) + 1).forEach(value => expect(value).toBeCloseTo(1));
+    opacity.outputRange.slice(0, opacity.inputRange.indexOf(2.16) + 1).forEach(value => expect(value).toBeCloseTo(1));
   });
 });

@@ -16,7 +16,7 @@ import { useFocusEffect } from "expo-router";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 import { Mood } from "@/types";
 import { colors, radius, typography } from "@/theme";
-import { MOOD_TIMING, moodOrbFrames, smoothMoodTrack } from "./mood-motion";
+import { MOOD_KEYFRAMES, MOOD_POINT, MOOD_TIMING, moodOrbFrames, smoothMoodTrack } from "./mood-motion";
 
 const OPTIONS: { mood: Mood; label: string; color: string; message: string }[] = [
   { mood: "great", label: "Great", color: "#FED986", message: "Glad to see it" },
@@ -75,9 +75,15 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
   const motion = useMoodMotion();
   const { width } = useWindowDimensions();
   const clusterWidth = Math.min(334, Math.max(220, width - 64));
-  const option = phase === "selected" || phase === "returning" ? OPTIONS.find(item => item.mood === selected) : undefined;
+  const option = OPTIONS.find(item => item.mood === selected);
   const [transition] = useState(() => new Animated.Value(0));
   const [panel] = useState(() => new Animated.Value(0));
+  const showDetails = phase === "selected";
+  const greeting = (message: string) => `${message}${firstName ? `,\n${firstName}` : "."}`;
+  const headingFade = useMemo(() => ({
+    question: transition.interpolate(smoothMoodTrack([1, 1, 0, 0], [0, 1.1, MOOD_POINT, 4])),
+    response: transition.interpolate(smoothMoodTrack([0, 0, 1, 1], [0, MOOD_POINT, 3.6, 4])),
+  }), [transition]);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,13 +127,31 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
   }, [phase, motion, panel, transition]);
 
   return (
-    <View style={styles.content}>
+    <Animated.View style={[styles.content, {
+      // Keep overall content height stable as the notes move up, preventing a
+      // scrollbar/layout shift at the handoff from the orb to the form.
+      paddingBottom: panel.interpolate({ inputRange: [0, 1], outputRange: [100, 100 + clusterWidth + 38 - 218] }),
+    }]}>
       <Text style={styles.brand}>Kairos</Text>
       <View style={styles.heading} accessibilityLiveRegion="polite">
-        <Text style={styles.title}>
-          {option ? `${option.message}${firstName ? `,\n${firstName}` : "."}` : "How do you feel\ntoday?"}
-        </Text>
-        <Text style={styles.subtitle}>{option ? "A little space for how you feel." : "Take a breath. Choose what feels closest."}</Text>
+        {/* Reserve the longest response at the current width/font size so a
+            multi-line greeting never pushes the orb when it fades in. */}
+        <View pointerEvents="none" aria-hidden accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.headingSizer}>
+          <Text style={styles.title}>{greeting("You don't have to carry it alone")}</Text>
+          <Text style={styles.subtitle}>Take a breath. Choose what feels closest.</Text>
+        </View>
+        <Animated.View pointerEvents="none" aria-hidden={showDetails} accessibilityElementsHidden={showDetails}
+          importantForAccessibility={showDetails ? "no-hide-descendants" : "auto"}
+          style={[styles.headingLayer, { opacity: headingFade.question }]}>
+          <Text style={styles.title}>{"How do you feel\ntoday?"}</Text>
+          <Text style={styles.subtitle}>Take a breath. Choose what feels closest.</Text>
+        </Animated.View>
+        <Animated.View pointerEvents="none" aria-hidden={!showDetails} accessibilityElementsHidden={!showDetails}
+          importantForAccessibility={!showDetails ? "no-hide-descendants" : "auto"}
+          style={[styles.headingLayer, { opacity: headingFade.response }]}>
+          <Text style={styles.title}>{option ? greeting(option.message) : ""}</Text>
+          <Text style={styles.subtitle}>A little space for how you feel.</Text>
+        </Animated.View>
       </View>
 
       <Animated.View style={[styles.cluster, { width: clusterWidth, height: panel.interpolate({ inputRange: [0, 1], outputRange: [clusterWidth + 38, 218] }) }]}>
@@ -142,12 +166,12 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
               setPhase("selecting");
             }} />
         ))}
+        {!selected && <Text style={[styles.footnote, styles.choicesFootnote]}>There is no right or wrong answer.</Text>}
       </Animated.View>
 
-      {selected && (phase === "selected" || phase === "returning") && (
-        <Animated.View pointerEvents={phase === "returning" ? "none" : "auto"}
-          accessibilityElementsHidden={phase === "returning"}
-          importantForAccessibility={phase === "returning" ? "no-hide-descendants" : "auto"} style={[styles.notes, {
+        <Animated.View pointerEvents={showDetails ? "auto" : "none"} aria-hidden={!showDetails}
+          accessibilityElementsHidden={!showDetails}
+          importantForAccessibility={!showDetails ? "no-hide-descendants" : "auto"} style={[styles.notes, {
           opacity: panel,
           transform: [{ translateY: panel.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
         }]}>
@@ -166,15 +190,13 @@ export function MoodTracker({ firstName, isSaving, error, onSave }: Props) {
           {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
           <Pressable accessibilityRole="button" accessibilityLabel="Save mood and return home"
             accessibilityState={{ disabled: isSaving || phase !== "selected", busy: isSaving }} disabled={isSaving || phase !== "selected"}
-            onPress={() => { if (transitionLocked.current || phase !== "selected") return; Keyboard.dismiss(); onSave(selected, note); }}
+            onPress={() => { if (transitionLocked.current || phase !== "selected" || !selected) return; Keyboard.dismiss(); onSave(selected, note); }}
             style={({ pressed }) => [styles.saveButton, (pressed || isSaving) && styles.dimmed]}>
             <Text style={styles.saveText}>{isSaving ? "Saving…" : "Save & return home"}</Text>
           </Pressable>
           <Text style={styles.footnote}>Every feeling belongs here.</Text>
         </Animated.View>
-      )}
-      {!selected && <Text style={styles.footnote}>There is no right or wrong answer.</Text>}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -194,8 +216,8 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
     transform: [
       // Movement begins during the initial swell; every color then shares the
       // exact central point before the selected light opens out of it.
-      { translateX: transition.interpolate(smoothMoodTrack(frames.translateX, [0, 0.12, 1.8, 2.5, 4])) },
-      { translateY: transition.interpolate(smoothMoodTrack(frames.translateY, [0, 0.12, 1.8, 2.5, 4])) },
+      { translateX: transition.interpolate(smoothMoodTrack(frames.translateX, [0, 0.1, MOOD_KEYFRAMES[2], MOOD_POINT, 4])) },
+      { translateY: transition.interpolate(smoothMoodTrack(frames.translateY, [0, 0.1, MOOD_KEYFRAMES[2], MOOD_POINT, 4])) },
       { scale: transition.interpolate(smoothMoodTrack(frames.scale)) },
     ],
   }), [frames, transition]);
@@ -203,7 +225,7 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
     // Keep the five choices expressive. As the selected light opens from the
     // central point, ease its breathing down to a quiet quarter-amplitude pulse.
     // The same envelope reverses smoothly when returning to the choices.
-    const strength = transition.interpolate(smoothMoodTrack([1, 1, 0.25], [0, 2.5, 4]));
+    const strength = transition.interpolate(smoothMoodTrack([1, 1, 0.25], [0, MOOD_POINT, 4]));
     const pulse = Animated.multiply(Animated.subtract(breath, 0.5), strength);
     return {
       haloOpacity: pulse.interpolate({ inputRange: [-0.5, 0.5], outputRange: [0.18, 0.52] }),
@@ -294,6 +316,8 @@ const styles = StyleSheet.create({
   content: { width: "100%", paddingTop: 30, paddingBottom: 100 },
   brand: { alignSelf: "center", color: colors.fg.primary, fontFamily: typography.family.brand, fontSize: 20, lineHeight: 28 },
   heading: { marginTop: 54, minHeight: 126, gap: 12 },
+  headingSizer: { gap: 12, opacity: 0 },
+  headingLayer: { position: "absolute", top: 0, left: 0, right: 0, gap: 12 },
   title: { color: colors.fg.primary, fontSize: 34, lineHeight: 42, fontWeight: "400", letterSpacing: -0.4 },
   subtitle: { color: "rgba(255,255,255,0.78)", fontSize: 14, lineHeight: 22 },
   cluster: { alignSelf: "center", marginTop: 40 },
@@ -308,5 +332,6 @@ const styles = StyleSheet.create({
   saveText: { color: colors.fg.primary, fontSize: 14, lineHeight: 20, fontWeight: "600" },
   dimmed: { opacity: 0.6 },
   footnote: { marginTop: 18, color: "rgba(255,255,255,0.7)", fontSize: 13, lineHeight: 20, textAlign: "center" },
+  choicesFootnote: { position: "absolute", top: "100%", width: "100%" },
   error: { color: "#FFE4DE", lineHeight: 22, fontSize: 14 },
 });

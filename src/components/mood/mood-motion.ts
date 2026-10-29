@@ -9,12 +9,13 @@ export const MOOD_POSITIONS = {
 
 // The file has static storyboard frames, not exported keyframes. These timings
 // implement the user's requested swell → gather → central point → reveal.
-export const MOOD_TIMING = { select: 2040, notes: 320, return: 1100 };
-export const MOOD_KEYFRAMES = [0, 0.56, 1.8, 2.5, 4];
+export const MOOD_TIMING = { select: 2400, notes: 420, return: 1300 };
+export const MOOD_KEYFRAMES = [0, 0.48, 1.52, 2.16, 4];
+export const MOOD_POINT = MOOD_KEYFRAMES[3];
 const CURVE_SAMPLES_PER_SEGMENT = 48;
 
-/** Sample a monotone cubic curve for native Animated interpolation. Shared
- * tangents carry velocity across frames without overshooting position/opacity.
+/** Sample a quintic curve for native Animated interpolation. Shared tangents
+ * and zero acceleration at anchors soften the reversal at the central point.
  * The one linear animation clock drives these curves in either direction. */
 export function smoothMoodTrack(values: number[], times = MOOD_KEYFRAMES) {
   const slopes = values.slice(1).map((value, index) => (value - values[index]) / (times[index + 1] - times[index]));
@@ -34,12 +35,17 @@ export function smoothMoodTrack(values: number[], times = MOOD_KEYFRAMES) {
       const t = step / CURVE_SAMPLES_PER_SEGMENT;
       const t2 = t * t;
       const t3 = t2 * t;
+      const t4 = t3 * t;
+      const t5 = t4 * t;
+      const delta = values[index + 1] - values[index];
+      const startVelocity = span * tangents[index];
+      const endVelocity = span * tangents[index + 1];
       inputRange.push(step === CURVE_SAMPLES_PER_SEGMENT ? times[index + 1] : times[index] + t * span);
       outputRange.push(
-        (2 * t3 - 3 * t2 + 1) * values[index]
-        + (t3 - 2 * t2 + t) * span * tangents[index]
-        + (-2 * t3 + 3 * t2) * values[index + 1]
-        + (t3 - t2) * span * tangents[index + 1],
+        values[index] + startVelocity * t
+        + (10 * delta - 6 * startVelocity - 4 * endVelocity) * t3
+        + (-15 * delta + 8 * startVelocity + 7 * endVelocity) * t4
+        + (6 * delta - 3 * startVelocity - 3 * endVelocity) * t5,
       );
     }
   }
