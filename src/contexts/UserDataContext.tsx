@@ -13,6 +13,7 @@ import { useAuth } from "./AuthContext";
 import { supabase } from "@/services/supabase";
 import { generateLiveVitals } from "@/lib/mock-data";
 import { seedDemoData, seedDemoPersona } from "@/lib/seed-demo";
+import { createSeedCoordinator } from "@/lib/seed-coordinator";
 import { planDemoSeed, planHasWork } from "@/lib/seed-policy";
 import { summarizeKpin } from "@/lib/kpin";
 import { evaluateBaselineRisk } from "@/lib/risk-analysis";
@@ -61,10 +62,10 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Demo body data is seeded at most once per provider mount. The empty-data
-  // check below is itself idempotent, but this ref also blocks a concurrent
-  // double-seed if refresh() is somehow called twice in flight.
-  const seedAttemptedRef = useRef(false);
+  // The demo persona is seeded at most once per user per provider mount, and
+  // overlapping refreshes (auth re-parses the session on tab refocus) wait
+  // for an in-flight seed instead of publishing the empty pre-seed rows.
+  const [seedCoordinator] = useState(createSeedCoordinator);
 
   // Monotonic sequence for refresh calls: overlapping refreshes (the user
   // effect racing a screen's manual refresh, or a fast account switch) must
@@ -83,13 +84,15 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
       setLoadedUserId(null);
       setLoadError(null);
       // Allow a different account signed in later to be seeded too.
-      seedAttemptedRef.current = false;
+      seedCoordinator.reset();
       return;
     }
 
     setIsLoading(true);
     setLoadError(null);
     try {
+      await seedCoordinator.settled(user.id);
+
       // Fan out the queries in parallel; RLS scopes them to this user.
       const fetchAll = () =>
         Promise.all([
@@ -141,10 +144,11 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
         bpCount: (bpRes.data ?? []).length,
         moodCount: (moodRes.data ?? []).length,
       });
-      if (!seedAttemptedRef.current && planHasWork(seedPlan)) {
-        seedAttemptedRef.current = true;
-        await seedDemoPersona(user.id, seedPlan);
-        if (seedPlan.bodyData) await seedDemoData(user.id);
+      if (planHasWork(seedPlan)) {
+        await seedCoordinator.runOnce(user.id, async () => {
+          await seedDemoPersona(user.id, seedPlan);
+          if (seedPlan.bodyData) await seedDemoData(user.id);
+        });
         [profileRes, pregRes, familyRes, bpRes, moodRes] = await fetchAll();
         verifyQueries();
       }
@@ -168,12 +172,12 @@ export function UserDataProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       }
     }
-  }, [user]);
+  }, [user, seedCoordinator]);
 
   useEffect(() => {
     setActiveEvaluations([]);
-    seedAttemptedRef.current = false;
-  }, [user?.id]);
+    seedCoordinator.reset();
+  }, [user?.id, seedCoordinator]);
 
   useEffect(() => {
     refresh();
