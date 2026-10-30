@@ -174,7 +174,6 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   screen: {
     paddingHorizontal: 40,
-    paddingTop: 70,
     gap: 32,
   },
   header: {

@@ -1,3 +1,4 @@
+import { usePageTopPadding } from "@/hooks/usePageTopPadding";
 import { PageTitle } from "@/components/ui/PageTitle";
 import React, { useState, useMemo, useEffect } from "react";
 import { StyleSheet, View, TouchableOpacity, ScrollView, Modal } from "react-native";
@@ -45,6 +46,7 @@ function mapMoodRow(row: any): MoodEntry {
  * - Modal detail views for each category with real/mocked data.
  */
 export default function HealthLogScreen() {
+  const paddingTop = usePageTopPadding();
   const { recentBp, recentMood } = useUserData();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -155,7 +157,7 @@ export default function HealthLogScreen() {
   return (
     <Screen contentStyle={styles.screenContent}>
       {/* --- Calendar Section (Top Half) --- */}
-      <View style={styles.calendarContainer}>
+      <View style={[styles.calendarContainer, { paddingTop }]}>
         <PageTitle>Health log</PageTitle>
         <View style={styles.calendarHeader}>
           <Heading level={3}>{format(currentMonth, "MMMM yyyy")}</Heading>
@@ -338,7 +340,6 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   calendarContainer: {
-    paddingTop: spacing.xxxl,
     backgroundColor: colors.bg.card,
     paddingHorizontal: spacing.xl,
     paddingBottom: spacing.md,

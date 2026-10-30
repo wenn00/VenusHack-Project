@@ -1,3 +1,4 @@
+import { usePageTopPadding } from "@/hooks/usePageTopPadding";
 import { PageTitle } from "@/components/ui/PageTitle";
 import { useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -15,6 +16,7 @@ export function IntakeForm({ sections, initialAnswers, onSave, submitLabel = "Co
   title?: string;
   onCancel?: () => void;
 }) {
+  const paddingTop = usePageTopPadding();
   const [answers, setAnswers] = useState(initialAnswers);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -39,7 +41,7 @@ export function IntakeForm({ sections, initialAnswers, onSave, submitLabel = "Co
     finally { busy.current = false; setSaving(false); }
   }
   return (
-    <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, onCancel && styles.editContent]}>
+    <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingTop }, onCancel && styles.editContent]}>
       <PageTitle>{title}</PageTitle>
       <Body tone="muted">{section.title}</Body>
       {sections.length > 1 && <View style={styles.progress} accessibilityLabel={`Step ${step + 1} of ${sections.length}`}>
@@ -82,7 +84,7 @@ function Question({ question, value, onChange, disabled }: { question: IntakeQue
   </View>;
 }
 const styles = StyleSheet.create({
-  content: { paddingTop: spacing.xxxl, paddingHorizontal: spacing.xl, paddingBottom: 48, gap: 18 },
+  content: { paddingHorizontal: spacing.xl, paddingBottom: 48, gap: 18 },
   editContent: { gap: 14 },
   editFields: { gap: 20, paddingVertical: 8 },
   fields: { gap: 30, paddingVertical: 16 },

@@ -3,6 +3,7 @@
  */
 
 import React from "react";
+import { pageTopPadding } from "@/lib/page-layout";
 import { ScrollView, StyleSheet, View, ViewStyle } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, spacing } from "@/theme";
@@ -22,7 +23,7 @@ export function Screen({ children, scroll = true, contentStyle, fixedOverlay, he
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(100, typeof contentStyle?.paddingBottom === "number" ? contentStyle.paddingBottom : 0) + insets.bottom;
   const Inner = (
-    <View style={[styles.inner, contentStyle, { paddingBottom: bottomPadding }]}>{children}</View>
+    <View style={[styles.inner, { paddingVertical: pageTopPadding(insets.top) }, contentStyle, { paddingBottom: bottomPadding }]}>{children}</View>
   );
 
   return (
@@ -57,7 +58,6 @@ const styles = StyleSheet.create({
     maxWidth: 440,
     alignSelf: "center",
     paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xxxl,
     gap: spacing.lg,
   },
 });
