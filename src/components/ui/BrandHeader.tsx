@@ -4,15 +4,15 @@ import { StyleSheet, Text, View } from "react-native";
 import { colors, spacing, typography } from "@/theme";
 
 /** Place inside a safe area, outside page padding. No absolute inset math. */
-export function BrandHeader() {
+export function BrandHeader({ bottomSpacing = spacing.xl }: { bottomSpacing?: number }) {
   const paddingTop = usePageTopPadding();
-  return <View style={[styles.header, { paddingTop }]} pointerEvents="none">
+  return <View style={[styles.header, { paddingTop, paddingBottom: bottomSpacing }]} pointerEvents="none">
     <Text style={styles.brand}>Kairos</Text>
   </View>;
 }
 
 const styles = StyleSheet.create({
-  header: { paddingBottom: spacing.xl, alignItems: "center" },
+  header: { alignItems: "center" },
   brand: {
     color: colors.fg.primary,
     fontFamily: typography.family.brand,

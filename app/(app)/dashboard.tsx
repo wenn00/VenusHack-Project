@@ -23,7 +23,7 @@ export default function DashboardScreen() {
   });
 
   return (
-    <Screen contentStyle={styles.screen} header={<BrandHeader />}>
+    <Screen contentStyle={styles.screen} header={<BrandHeader bottomSpacing={spacing.sm} />}>
       <Text style={styles.greeting}>
         {getDayGreeting()}
         {firstName ? `, ${firstName}` : ""}.{"\n"}{"We're here whenever you're ready."}
