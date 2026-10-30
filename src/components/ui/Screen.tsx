@@ -14,10 +14,11 @@ interface ScreenProps {
   scroll?: boolean;
   contentStyle?: ViewStyle;
   fixedOverlay?: React.ReactNode;
+  header?: React.ReactNode;
   showMenu?: boolean;
 }
 
-export function Screen({ children, scroll = true, contentStyle, fixedOverlay, showMenu = true }: ScreenProps) {
+export function Screen({ children, scroll = true, contentStyle, fixedOverlay, header, showMenu = true }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(100, typeof contentStyle?.paddingBottom === "number" ? contentStyle.paddingBottom : 0) + insets.bottom;
   const Inner = (
@@ -27,6 +28,7 @@ export function Screen({ children, scroll = true, contentStyle, fixedOverlay, sh
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
       <BlueBackground />
+      {header}
       {scroll ? (
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {Inner}
@@ -54,8 +56,8 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 440,
     alignSelf: "center",
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xxxl,
     gap: spacing.lg,
   },
 });
