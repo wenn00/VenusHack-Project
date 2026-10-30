@@ -1,7 +1,7 @@
 """rPPG core algorithm.
 
 Pipeline:
-    1. Read the video frames.
+    1. Read the video frames with their real capture timestamps.
     2. Detect the face on each frame using MediaPipe FaceMesh.
     3. Build an ROI mask covering forehead + cheeks and extract its RGB mean.
     4. Apply the POS algorithm (Wang et al., 2017) to derive a 1-D rPPG signal.
@@ -133,7 +133,8 @@ def _extract_face_rgb(path: str) -> Tuple[np.ndarray, np.ndarray, float, int]:
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
 
     rgb_signals: list[np.ndarray] = []
-    timestamps: list[float] = []
+    face_frames: list[int] = []
+    pos_msec: list[float] = []
     frame_idx = 0
     with mp.solutions.face_mesh.FaceMesh(
         static_image_mode=False, max_num_faces=1, refine_landmarks=False
@@ -142,6 +143,7 @@ def _extract_face_rgb(path: str) -> Tuple[np.ndarray, np.ndarray, float, int]:
             ok, frame = cap.read()
             if not ok:
                 break
+            pos_msec.append(cap.get(cv2.CAP_PROP_POS_MSEC))
             frame_idx += 1
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             result = face_mesh.process(rgb)
@@ -151,15 +153,30 @@ def _extract_face_rgb(path: str) -> Tuple[np.ndarray, np.ndarray, float, int]:
             pixels = rgb[mask]
             if len(pixels) > 0:
                 rgb_signals.append(pixels.mean(axis=0))
-                timestamps.append((frame_idx - 1) / fps)
+                face_frames.append(frame_idx - 1)
     cap.release()
 
+    frame_times = _frame_times(pos_msec, fps)
     return (
         np.asarray(rgb_signals, dtype=np.float64),
-        np.asarray(timestamps, dtype=np.float64),
+        frame_times[np.asarray(face_frames, dtype=int)],
         fps,
         frame_idx,
     )
+
+
+def _frame_times(pos_msec: list[float], fps: float) -> np.ndarray:
+    """Per-frame capture times in seconds, starting at 0.
+
+    Phone and browser recordings are variable-frame-rate, so the container's
+    presentation timestamps are the truth and idx/fps is only an average.
+    Falls back to idx/fps when the backend reports no usable timestamps
+    (all zero, repeated/decreasing, or non-finite).
+    """
+    ms = np.asarray(pos_msec, dtype=np.float64)
+    if len(ms) > 1 and np.all(np.isfinite(ms)) and np.all(np.diff(ms) > 0):
+        return (ms - ms[0]) / 1000.0
+    return np.arange(len(ms), dtype=np.float64) / fps
 
 
 def _build_roi_mask(frame: np.ndarray, landmarks) -> np.ndarray:
