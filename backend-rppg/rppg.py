@@ -24,7 +24,7 @@ Returns a JSON-serialisable dict:
 
 from __future__ import annotations
 
-from typing import Tuple
+from typing import Iterator, Tuple
 
 import cv2
 import mediapipe as mp
@@ -79,6 +79,14 @@ MIN_ANALYSIS_SECONDS = 10.0
 # the 512 MB server.
 ANALYSIS_FS = 30.0
 MAX_CLIP_SECONDS = 60.0
+# Every decoded frame is run through face tracking (~80 ms each on the
+# 0.1-CPU dyno) while other users wait on the single-job gate, and the 50 MB
+# upload cap doesn't bound a near-blank video's frame count or size. 1200
+# frames (20 s at 60 fps, 40 s at 30 fps) keeps the worst case near 100 s,
+# inside the client's 150 s timeout; 1080p covers every capture path (native
+# records 720p, web 640x480).
+MAX_FRAMES = 1200
+MAX_FRAME_PIXELS = 1920 * 1080
 # Power at half the strongest frequency, as a share of the strongest peak's,
 # above which the strongest peak is taken to be the harmonic. In synthetic
 # tests 0.3 recovers harmonic-dominant 70 BPM pulses without halving real
@@ -194,25 +202,24 @@ def _extract_face_rgb(path: str) -> Tuple[np.ndarray, np.ndarray, float, int]:
     face_frames: list[int] = []
     pos_msec: list[float] = []
     frame_idx = 0
-    with mp.solutions.face_mesh.FaceMesh(
-        static_image_mode=False, max_num_faces=1, refine_landmarks=False
-    ) as face_mesh:
-        while True:
-            ok, frame = cap.read()
-            if not ok:
-                break
-            pos_msec.append(cap.get(cv2.CAP_PROP_POS_MSEC))
-            frame_idx += 1
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            result = face_mesh.process(rgb)
-            if not result.multi_face_landmarks:
-                continue
-            mask = _build_roi_mask(rgb, result.multi_face_landmarks[0])
-            pixels = rgb[mask]
-            if len(pixels) > 0:
-                rgb_signals.append(pixels.mean(axis=0))
-                face_frames.append(frame_idx - 1)
-    cap.release()
+    try:
+        with mp.solutions.face_mesh.FaceMesh(
+            static_image_mode=False, max_num_faces=1, refine_landmarks=False
+        ) as face_mesh:
+            for frame, frame_msec in _read_frames(cap):
+                pos_msec.append(frame_msec)
+                frame_idx += 1
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                result = face_mesh.process(rgb)
+                if not result.multi_face_landmarks:
+                    continue
+                mask = _build_roi_mask(rgb, result.multi_face_landmarks[0])
+                pixels = rgb[mask]
+                if len(pixels) > 0:
+                    rgb_signals.append(pixels.mean(axis=0))
+                    face_frames.append(frame_idx - 1)
+    finally:
+        cap.release()
 
     frame_times = _frame_times(pos_msec, fps)
     return (
@@ -221,6 +228,32 @@ def _extract_face_rgb(path: str) -> Tuple[np.ndarray, np.ndarray, float, int]:
         fps,
         frame_idx,
     )
+
+
+def _read_frames(cap) -> Iterator[Tuple[np.ndarray, float]]:
+    """Yield (frame, pos_msec) for each decoded frame of `cap`.
+
+    Refuses clips with more, or larger, frames than a measurement needs —
+    from the container's declared values before decoding anything, and from
+    the decoded frames in case the header understates them.
+    """
+    too_much = RppgError(
+        "LOW_QUALITY_VIDEO",
+        "This video is too long or too large to analyse. Please record a normal 20-second measurement.",
+    )
+    declared_pixels = cap.get(cv2.CAP_PROP_FRAME_WIDTH) * cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+    if cap.get(cv2.CAP_PROP_FRAME_COUNT) > MAX_FRAMES or declared_pixels > MAX_FRAME_PIXELS:
+        raise too_much
+
+    count = 0
+    while True:
+        ok, frame = cap.read()
+        if not ok:
+            return
+        count += 1
+        if count > MAX_FRAMES or frame.shape[0] * frame.shape[1] > MAX_FRAME_PIXELS:
+            raise too_much
+        yield frame, cap.get(cv2.CAP_PROP_POS_MSEC)
 
 
 def _frame_times(pos_msec: list[float], fps: float) -> np.ndarray:
