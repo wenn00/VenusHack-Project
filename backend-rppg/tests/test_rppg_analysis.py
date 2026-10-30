@@ -5,6 +5,8 @@ signal but were previously still processed as uniformly sampled at fps,
 compressing the time axis and inflating BPM by 1/(1 - drop_ratio).
 """
 
+import time
+
 import numpy as np
 import pytest
 
@@ -215,6 +217,30 @@ def test_implausibly_short_time_span_is_refused_not_crashed():
     that must be a "please re-measure", not an HTTP 500 from the filter."""
     with pytest.raises(rppg.RppgError) as exc:
         rppg._analyze_signals(_synth_rgb(), np.linspace(0.0, 0.5, N), FPS, total_frames=N)
+    assert exc.value.code == "LOW_QUALITY_VIDEO"
+
+
+def test_absurd_container_frame_rate_does_not_inflate_the_analysis():
+    """The frame rate comes from the uploaded file. Resampling a real 20 s
+    clip at a claimed 1,000,000 fps would build a 20-million-sample grid."""
+    rgb = _synth_rgb()
+    result = rppg._analyze_signals(rgb, np.arange(N) / FPS, 1_000_000.0, total_frames=N)
+    assert abs(result["bpm"] - 72) <= 1
+
+
+def test_clip_claiming_an_implausibly_long_duration_is_refused_quickly():
+    """Crafted timestamps can claim hours for a 20 s clip; refusing must not
+    first resample and analyse those hours."""
+    started = time.perf_counter()
+    with pytest.raises(rppg.RppgError) as exc:
+        rppg._analyze_signals(_synth_rgb(), np.linspace(0.0, 36_000.0, N), FPS, total_frames=N)
+    assert exc.value.code == "LOW_QUALITY_VIDEO"
+    assert time.perf_counter() - started < 1.0
+
+
+def test_non_finite_timing_is_refused():
+    with pytest.raises(rppg.RppgError) as exc:
+        rppg._analyze_signals(_synth_rgb(), np.arange(N) / float("nan"), float("nan"), total_frames=N)
     assert exc.value.code == "LOW_QUALITY_VIDEO"
 
 

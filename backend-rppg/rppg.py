@@ -71,6 +71,14 @@ SNR_BAND_HZ = (0.7, 4.0)
 # Below this much signal, after resampling, there are too few beats to read
 # (and the bandpass filter cannot run) — only corrupt timestamps get here.
 MIN_ANALYSIS_SECONDS = 10.0
+# Frame timestamps and the frame rate both come from the uploaded file, so
+# they must not set the amount of work: the signal is resampled to a fixed
+# analysis rate (not the claimed frame rate), and clips claiming to last
+# longer than MAX_CLIP_SECONDS are refused. Measurements are 20 s; a crafted
+# clip claiming hours, or a million fps, would otherwise build a huge grid on
+# the 512 MB server.
+ANALYSIS_FS = 30.0
+MAX_CLIP_SECONDS = 60.0
 # Power at half the strongest frequency, as a share of the strongest peak's,
 # above which the strongest peak is taken to be the harmonic. In synthetic
 # tests 0.3 recovers harmonic-dominant 70 BPM pulses without halving real
@@ -121,23 +129,30 @@ def _analyze_signals(
             "Face tracking dropped out too often. Try again in brighter, more even light.",
         )
 
-    uniform = _resample_uniform(rgb_signals, timestamps, fps)
-    if len(uniform) < MIN_ANALYSIS_SECONDS * fps:
+    span = float(timestamps[-1] - timestamps[0])
+    if not np.isfinite(span) or span > MAX_CLIP_SECONDS:
+        raise RppgError(
+            "LOW_QUALITY_VIDEO",
+            "The recording's timing looks wrong. Please record a normal 20-second measurement.",
+        )
+
+    uniform = _resample_uniform(rgb_signals, timestamps, ANALYSIS_FS)
+    if len(uniform) < MIN_ANALYSIS_SECONDS * ANALYSIS_FS:
         raise RppgError(
             "LOW_QUALITY_VIDEO",
             "The recording was too short to read a heart rate. Please measure again.",
         )
 
-    rppg_signal = _pos_algorithm(uniform, fps)
-    rppg_filtered = _bandpass(rppg_signal, low=0.7, high=4.0, fs=fps)
+    rppg_signal = _pos_algorithm(uniform, ANALYSIS_FS)
+    rppg_filtered = _bandpass(rppg_signal, low=0.7, high=4.0, fs=ANALYSIS_FS)
 
-    bpm, snr_db = _estimate_bpm(rppg_filtered, fps)
+    bpm, snr_db = _estimate_bpm(rppg_filtered, ANALYSIS_FS)
     if snr_db < MIN_SNR_DB:
         raise RppgError(
             "LOW_QUALITY_VIDEO",
             "Couldn't find a clear pulse in this recording. Hold still in bright, even light and measure again.",
         )
-    hrv_ms = _estimate_hrv_ms(rppg_filtered, fps, bpm)
+    hrv_ms = _estimate_hrv_ms(rppg_filtered, ANALYSIS_FS, bpm)
     # 0.5 at the rejection threshold, rising to 1.0 at 10 dB above it.
     confidence = float(np.clip(0.5 + (snr_db - MIN_SNR_DB) / 20.0, 0.0, 1.0))
 
