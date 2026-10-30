@@ -350,7 +350,8 @@ const videoStyle = {
 
 const styles = StyleSheet.create({
   cameraContainer: {
-    padding: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
     gap: 0,
   },
   cameraFrame: {
