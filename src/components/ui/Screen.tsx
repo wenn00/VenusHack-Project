@@ -13,6 +13,7 @@ import { BlueBackground } from "./BlueBackground";
 interface ScreenProps {
   children: React.ReactNode;
   scroll?: boolean;
+  scrollRef?: React.Ref<ScrollView>;
   contentStyle?: ViewStyle;
   fixedOverlay?: React.ReactNode;
   header?: React.ReactNode;
@@ -21,7 +22,7 @@ interface ScreenProps {
   showMenu?: boolean;
 }
 
-export function Screen({ children, scroll = true, contentStyle, fixedOverlay, header, overlayHeader = false, showMenu = true }: ScreenProps) {
+export function Screen({ children, scroll = true, scrollRef, contentStyle, fixedOverlay, header, overlayHeader = false, showMenu = true }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const [headerHeight, setHeaderHeight] = useState<number | null>(null);
   const floatingHeader = overlayHeader && scroll && header != null;
@@ -37,6 +38,7 @@ export function Screen({ children, scroll = true, contentStyle, fixedOverlay, he
       {!floatingHeader && header}
       {scroll ? (
         <ScrollView
+          ref={scrollRef}
           style={floatingHeader && headerHeight === null ? styles.measuring : undefined}
           contentContainerStyle={[styles.scroll, floatingHeader && { paddingTop: headerHeight ?? 0 }]}
           keyboardShouldPersistTaps="handled"

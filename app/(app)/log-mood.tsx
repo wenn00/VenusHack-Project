@@ -1,6 +1,6 @@
-import { useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform } from "react-native";
-import { router } from "expo-router";
+import { useCallback, useRef, useState } from "react";
+import { Keyboard, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { router, useFocusEffect } from "expo-router";
 import { MoodTracker } from "@/components/mood/MoodTracker";
 import { Screen } from "@/components/ui/Screen";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,6 +14,20 @@ export default function LogMoodScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [menuVisible, setMenuVisible] = useState(true);
+  const scrollRef = useRef<ScrollView>(null);
+
+  useFocusEffect(useCallback(() => {
+    let frame: number | undefined;
+    const keyboard = Keyboard.addListener("keyboardDidShow", () => {
+      // Wait for KeyboardAvoidingView to finish resizing before revealing the form.
+      if (frame !== undefined) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    });
+    return () => {
+      keyboard.remove();
+      if (frame !== undefined) cancelAnimationFrame(frame);
+    };
+  }, []));
   // Synchronous guard covers rapid taps before React has disabled the button.
   const savingRef = useRef(false);
   const savedRef = useRef(false);
@@ -50,7 +64,7 @@ export default function LogMoodScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <Screen contentStyle={{ paddingHorizontal: 24, paddingTop: 0, gap: 0 }} showMenu={menuVisible}>
+      <Screen scrollRef={scrollRef} contentStyle={{ paddingHorizontal: 24, paddingTop: 0, gap: 0 }} showMenu={menuVisible}>
         <MoodTracker firstName={profile?.fullName?.trim().split(/\s+/)[0]} isSaving={isSaving} error={error} onSave={saveMood}
           onMenuVisibleChange={setMenuVisible} />
       </Screen>
