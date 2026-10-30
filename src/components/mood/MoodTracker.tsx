@@ -1,3 +1,4 @@
+import { BrandHeader } from "@/components/ui/BrandHeader";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
@@ -15,7 +16,7 @@ import {
 import { useFocusEffect } from "expo-router";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 import { Mood } from "@/types";
-import { colors, radius, typography } from "@/theme";
+import { colors, radius } from "@/theme";
 import { MOOD_KEYFRAMES, MOOD_POINT, MOOD_TIMING, MoodPhase, moodMenuVisible, moodOrbFrames, smoothMoodTrack } from "./mood-motion";
 
 const OPTIONS: { mood: Mood; label: string; color: string; message: string }[] = [
@@ -135,7 +136,7 @@ export function MoodTracker({ firstName, isSaving, error, onSave, onMenuVisibleC
       // scrollbar/layout shift at the handoff from the orb to the form.
       paddingBottom: panel.interpolate({ inputRange: [0, 1], outputRange: [100, 100 + clusterWidth + 38 - 218] }),
     }]}>
-      <Text style={styles.brand}>Kairos</Text>
+      <BrandHeader />
       <View style={styles.heading} accessibilityLiveRegion="polite">
         {/* Reserve the longest response at the current width/font size so a
             multi-line greeting never pushes the orb when it fades in. */}
@@ -317,9 +318,8 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
 }
 
 const styles = StyleSheet.create({
-  content: { width: "100%", paddingTop: 30, paddingBottom: 100 },
-  brand: { alignSelf: "center", color: colors.fg.primary, fontFamily: typography.family.brand, fontSize: 20, lineHeight: 28 },
-  heading: { marginTop: 54, minHeight: 126, gap: 12 },
+  content: { width: "100%", paddingTop: 0, paddingBottom: 100 },
+  heading: { marginTop: 0, minHeight: 126, gap: 12 },
   headingSizer: { gap: 12, opacity: 0 },
   headingLayer: { position: "absolute", top: 0, left: 0, right: 0, gap: 12 },
   title: { color: colors.fg.primary, fontSize: 34, lineHeight: 42, fontWeight: "400", letterSpacing: -0.4 },

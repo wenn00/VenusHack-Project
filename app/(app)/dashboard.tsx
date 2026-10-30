@@ -1,9 +1,10 @@
 import { router } from "expo-router";
-import { Image, Platform, Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { BrandHeader } from "@/components/ui/BrandHeader";
 import { Screen } from "@/components/ui/Screen";
 import { useUserData } from "@/contexts/UserDataContext";
 import { getDashboardCondition } from "@/lib/dashboard-condition";
-import { colors, spacing, typography } from "@/theme";
+import { colors, spacing } from "@/theme";
 
 export default function DashboardScreen() {
   const { profile, kpinLevel, baselineEvaluation } = useUserData();
@@ -22,7 +23,7 @@ export default function DashboardScreen() {
   });
 
   return (
-    <Screen contentStyle={styles.screen} fixedOverlay={<StickyLogoHeader />}>
+    <Screen contentStyle={styles.screen} header={<BrandHeader />}>
       <Text style={styles.greeting}>
         {getDayGreeting()}
         {firstName ? `, ${firstName}` : ""}.{"\n"}{"We're here whenever you're ready."}
@@ -71,14 +72,6 @@ export default function DashboardScreen() {
   );
 }
 
-function StickyLogoHeader() {
-  return (
-    <View style={[styles.logoHeader, Platform.OS === "web" && webBackdropBlurStyle]}>
-      <Text style={styles.brand}>Kairos</Text>
-    </View>
-  );
-}
-
 function HomeActionCard({
   label,
   onPress,
@@ -113,38 +106,11 @@ function getDayGreeting(): string {
   return "Evening";
 }
 
-const webBackdropBlurStyle = {
-  backdropFilter: "blur(10px)",
-  WebkitBackdropFilter: "blur(10px)",
-  maskImage: "linear-gradient(to bottom, black 0%, black 54%, transparent 100%)",
-  WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 54%, transparent 100%)",
-} as ViewStyle;
-
 const styles = StyleSheet.create({
   screen: {
-    
     paddingHorizontal: 24,
-    paddingTop: 130,
+    paddingTop: 0,
     paddingBottom: 96,
-  },
-  logoHeader: {
-    position: "absolute",
-    top: 28,
-    left: 0,
-    right: 0,
-    height: 72,
-    zIndex: 12,
-    elevation: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(23, 80, 172, 0.18)",
-  },
-  brand: {
-    alignSelf: "center",
-    color: colors.fg.primary,
-    fontFamily: typography.family.brand,
-    fontSize: 20,
-    lineHeight: 28,
   },
   greeting: {
     color: colors.fg.primary,

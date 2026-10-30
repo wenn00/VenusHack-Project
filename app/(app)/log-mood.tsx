@@ -50,7 +50,7 @@ export default function LogMoodScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <Screen contentStyle={{ paddingHorizontal: 32, gap: 0 }} showMenu={menuVisible}>
+      <Screen contentStyle={{ paddingHorizontal: 24, paddingTop: 0, gap: 0 }} showMenu={menuVisible}>
         <MoodTracker firstName={profile?.fullName?.trim().split(/\s+/)[0]} isSaving={isSaving} error={error} onSave={saveMood}
           onMenuVisibleChange={setMenuVisible} />
       </Screen>

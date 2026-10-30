@@ -1,3 +1,4 @@
+import { BrandHeader } from "@/components/ui/BrandHeader";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -10,7 +11,7 @@ import { useUserData } from "@/contexts/UserDataContext";
 import { AiAccessError, chat } from "@/services/gemini";
 import { Conversation, createConversation, deleteConversation, LEGACY_CONVERSATION, listConversations, loadConversationMessages, MESSAGE_PAGE_SIZE, saveConversationMessage } from "@/services/conversations";
 import type { ChatMessage } from "@/types";
-import { colors, typography } from "@/theme";
+import { colors } from "@/theme";
 
 type Pending = { requestId: string; text: string; conversationId: string | null; userMessage?: ChatMessage; reply?: string; history: ChatMessage[] };
 export default function ChatbotScreen() {
@@ -159,7 +160,7 @@ function ConversationScreen({ userId }: { userId: string }) {
     <SafeAreaView style={styles.safe} edges={["top", "bottom", "left", "right"]}>
       <BlueBackground />
       <KeyboardAvoidingView style={styles.page} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <Text style={styles.brand}>Kairos</Text>
+        <BrandHeader />
         <View style={styles.toolbar}>
           <Button label="View Chat History" variant="secondary" disabled={busy || loading} onPress={openHistory} />
           {(conversationId || messages.length > 0) && <Button label="New chat" variant="ghost" disabled={busy} onPress={newConversation} />}
@@ -229,7 +230,6 @@ function ConversationScreen({ userId }: { userId: string }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg.page },
   page: { flex: 1, width: "100%", maxWidth: 520, alignSelf: "center" },
-  brand: { color: "white", fontFamily: typography.family.brand, fontSize: 24, textAlign: "center", marginTop: 26, marginBottom: 20 },
   toolbar: { flexDirection: "row", justifyContent: "center", gap: 12, paddingHorizontal: 16, flexWrap: "wrap" },
   messages: { padding: 24, gap: 18, flexGrow: 1 },
   welcome: { flex: 1, alignItems: "center", justifyContent: "center", gap: 20, paddingVertical: 40 },
