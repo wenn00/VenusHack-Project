@@ -4,9 +4,12 @@ Pipeline:
     1. Read the video frames with their real capture timestamps.
     2. Detect the face on each frame using MediaPipe FaceMesh.
     3. Build an ROI mask covering forehead + cheeks and extract its RGB mean.
-    4. Apply the POS algorithm (Wang et al., 2017) to derive a 1-D rPPG signal.
-    5. Bandpass filter to 0.7-4 Hz (i.e. 42-240 BPM).
-    6. Estimate heart rate via FFT peak, HRV via peak-interval std.
+    4. Resample onto a uniform time grid, then apply the POS algorithm
+       (Wang et al., 2017) to derive a 1-D rPPG signal.
+    5. Bandpass filter to 0.7-4 Hz.
+    6. Estimate heart rate from the strongest spectral peak in 45-180 BPM
+       (harmonic-checked); refuse the reading when its SNR is too low.
+       HRV via peak-interval RMSSD.
 
 Returns a JSON-serialisable dict:
     {
@@ -26,7 +29,6 @@ from typing import Tuple
 import cv2
 import mediapipe as mp
 import numpy as np
-from scipy.fft import fft, fftfreq
 from scipy.signal import butter, filtfilt, find_peaks
 
 
@@ -59,6 +61,36 @@ RIGHT_CHEEK_LANDMARKS = [346, 347, 348, 329, 266, 425, 411, 352]
 # signal is too gappy to trust — interpolation would invent the waveform.
 MAX_DROP_RATIO = 0.3
 
+# Heart rates searched for: 45-240 BPM. The top must stay this high so a
+# dangerously fast rate (e.g. SVT) is reported rather than refused or read as
+# a noise peak near half of it; the pulse's second harmonic winning instead of
+# the heart rate is handled by the half-frequency check in _estimate_bpm.
+HR_SEARCH_HZ = (0.75, 4.0)
+# Band the SNR's noise floor is measured over (matches the bandpass filter).
+SNR_BAND_HZ = (0.7, 4.0)
+# Below this much signal, after resampling, there are too few beats to read
+# (and the bandpass filter cannot run) — only corrupt timestamps get here.
+MIN_ANALYSIS_SECONDS = 10.0
+# Power at half the strongest frequency, as a share of the strongest peak's,
+# above which the strongest peak is taken to be the harmonic. In synthetic
+# tests 0.3 recovers harmonic-dominant 70 BPM pulses without halving real
+# 140-160 BPM ones.
+SUBHARMONIC_POWER_RATIO = 0.3
+# Readings below this spectral SNR are refused ("please re-measure"). The
+# strongest peak of pure noise scores well above 0 dB (it is the maximum of
+# many bins), so the bar sits above that:
+# - 3,000 synthetic pulse-free clips: 0.07% reached 9.5 dB (max 10.1 dB). A
+#   pulse as strong as the sensor noise passes ~86% of the time, one 0.8x as
+#   strong ~52%, with no accepted reading more than 3 BPM off.
+# - H.264 variable-frame-rate clips of a real face: 12 pulse-free clips scored
+#   4.1-8.5 dB (all refused; the old code reported 54-102 BPM for them). With
+#   a synthetic pulse of 0.4 / 0.6 / >= 0.8 grey levels, 4/6, 5/6 and 6/6
+#   clips passed, each within 1 BPM.
+# Not tuned on real recordings with a reference heart rate (none exist yet);
+# lowering this trades fewer "please re-measure" prompts for occasional
+# invented readings.
+MIN_SNR_DB = 9.5
+
 
 def process_video(path: str) -> dict[str, object]:
     rgb_signals, timestamps, fps, total_frames = _extract_face_rgb(path)
@@ -90,13 +122,24 @@ def _analyze_signals(
         )
 
     uniform = _resample_uniform(rgb_signals, timestamps, fps)
+    if len(uniform) < MIN_ANALYSIS_SECONDS * fps:
+        raise RppgError(
+            "LOW_QUALITY_VIDEO",
+            "The recording was too short to read a heart rate. Please measure again.",
+        )
 
     rppg_signal = _pos_algorithm(uniform, fps)
     rppg_filtered = _bandpass(rppg_signal, low=0.7, high=4.0, fs=fps)
 
-    bpm, snr = _estimate_bpm(rppg_filtered, fps)
+    bpm, snr_db = _estimate_bpm(rppg_filtered, fps)
+    if snr_db < MIN_SNR_DB:
+        raise RppgError(
+            "LOW_QUALITY_VIDEO",
+            "Couldn't find a clear pulse in this recording. Hold still in bright, even light and measure again.",
+        )
     hrv_ms = _estimate_hrv_ms(rppg_filtered, fps, bpm)
-    confidence = float(min(snr / 10.0, 1.0))
+    # 0.5 at the rejection threshold, rising to 1.0 at 10 dB above it.
+    confidence = float(np.clip(0.5 + (snr_db - MIN_SNR_DB) / 20.0, 0.0, 1.0))
 
     return {
         "status": "success",
@@ -225,20 +268,70 @@ def _bandpass(signal: np.ndarray, low: float, high: float, fs: float, order: int
     return filtfilt(b, a, signal)
 
 
-def _estimate_bpm(signal: np.ndarray, fs: float) -> Tuple[float, float]:
+def _power_spectrum(signal: np.ndarray, fs: float) -> Tuple[np.ndarray, np.ndarray]:
+    """Hann-windowed power spectrum, zero-padded to 8x the signal length.
+
+    The padding interpolates the spectrum so the peak is no longer stuck on
+    the 1/duration grid (3 BPM apart for a 20 s clip); the window keeps
+    leakage from neighbouring peaks out of the estimate.
+    """
     n = len(signal)
-    yf = np.abs(fft(signal))[: n // 2]
-    xf = fftfreq(n, 1 / fs)[: n // 2]
-    mask = (xf >= 0.7) & (xf <= 4.0)
-    if mask.sum() == 0:
-        return 72.0, 0.0
-    band = yf[mask]
-    peak_idx = int(np.argmax(band))
-    peak_freq = float(xf[mask][peak_idx])
-    bpm = peak_freq * 60.0
-    noise = float(np.median(band))
-    snr = float(band[peak_idx]) / (noise + 1e-9)
-    return bpm, snr
+    n_fft = 1 << int(np.ceil(np.log2(8 * n)))
+    windowed = (signal - signal.mean()) * np.hanning(n)
+    power = np.abs(np.fft.rfft(windowed, n_fft)) ** 2
+    return np.fft.rfftfreq(n_fft, 1.0 / fs), power
+
+
+def _estimate_bpm(signal: np.ndarray, fs: float) -> Tuple[float, float]:
+    """Returns (bpm, snr_db) from the strongest pulse peak.
+
+    A real PPG wave carries a second harmonic, sometimes stronger than the
+    fundamental, which would read as twice the heart rate. A true heart rate
+    puts power at its own harmonic but none at half its frequency, so a
+    substantial peak at half the strongest frequency marks the strongest
+    peak as the harmonic.
+    """
+    freqs, power = _power_spectrum(signal, fs)
+    search = (freqs >= HR_SEARCH_HZ[0]) & (freqs <= HR_SEARCH_HZ[1])
+    if not search.any():
+        return 0.0, float("-inf")
+    peak = int(np.flatnonzero(search)[np.argmax(power[search])])
+    hr_hz = float(freqs[peak])
+
+    near_half = np.abs(freqs - hr_hz / 2.0) <= 0.05
+    if hr_hz / 2.0 >= HR_SEARCH_HZ[0] and near_half.any():
+        sub = int(np.flatnonzero(near_half)[np.argmax(power[near_half])])
+        if power[sub] >= SUBHARMONIC_POWER_RATIO * power[peak]:
+            hr_hz = float(freqs[sub])
+
+    return hr_hz * 60.0, _snr_db(freqs, power, hr_hz)
+
+
+def _snr_db(freqs: np.ndarray, power: np.ndarray, hr_hz: float) -> float:
+    """Spectral SNR adapted from de Haan & Jeanne (2013), as a power density
+    ratio: mean power within ±0.1 Hz of the heart rate against mean power in
+    the rest of the analysis band.
+
+    The harmonic window (±0.2 Hz around 2x the rate) is left out of the noise
+    but, unlike the original, not credited as signal: it only lies inside the
+    band for rates below ~114 BPM, so crediting it handed slow rates free
+    noise power and refused fast ones (the alert range) more often, and let a
+    noise peak near half a very fast rate claim the real peak as "its
+    harmonic". Comparing means rather than sums keeps the ratio independent
+    of how much of the band that exclusion removes.
+    """
+    band = (freqs >= SNR_BAND_HZ[0]) & (freqs <= SNR_BAND_HZ[1])
+    fundamental = band & (np.abs(freqs - hr_hz) <= 0.1)
+    noise = band & ~fundamental & ~(np.abs(freqs - 2 * hr_hz) <= 0.2)
+    if not fundamental.any() or not noise.any():
+        return float("-inf")
+    pulse_density = float(power[fundamental].mean())
+    noise_density = float(power[noise].mean())
+    if pulse_density <= 0.0:
+        return float("-inf")
+    if noise_density <= 0.0:
+        return float("inf")
+    return 10.0 * float(np.log10(pulse_density / noise_density))
 
 
 def _estimate_hrv_ms(signal: np.ndarray, fs: float, bpm: float) -> float:
