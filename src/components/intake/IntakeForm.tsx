@@ -1,10 +1,12 @@
+import { usePageTopPadding } from "@/hooks/usePageTopPadding";
+import { PageTitle } from "@/components/ui/PageTitle";
 import { useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Body } from "@/components/ui/Body";
 import { Button } from "@/components/ui/Button";
 import { TextField } from "@/components/ui/TextField";
 import { IntakeAnswers, IntakeQuestion, IntakeSection, validateAnswers } from "@/lib/intake";
-import { colors, typography } from "@/theme";
+import { colors, spacing } from "@/theme";
 
 export function IntakeForm({ sections, initialAnswers, onSave, submitLabel = "Continue", title = "Onboarding", onCancel }: {
   sections: IntakeSection[];
@@ -14,6 +16,7 @@ export function IntakeForm({ sections, initialAnswers, onSave, submitLabel = "Co
   title?: string;
   onCancel?: () => void;
 }) {
+  const paddingTop = usePageTopPadding();
   const [answers, setAnswers] = useState(initialAnswers);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -38,8 +41,8 @@ export function IntakeForm({ sections, initialAnswers, onSave, submitLabel = "Co
     finally { busy.current = false; setSaving(false); }
   }
   return (
-    <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, onCancel && styles.editContent]}>
-      <Text style={[styles.title, onCancel && styles.editTitle]}>{title}</Text>
+    <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.content, { paddingTop }, onCancel && styles.editContent]}>
+      <PageTitle>{title}</PageTitle>
       <Body tone="muted">{section.title}</Body>
       {sections.length > 1 && <View style={styles.progress} accessibilityLabel={`Step ${step + 1} of ${sections.length}`}>
         {sections.map((s, i) => <View key={s.title} style={[styles.progressPart, i <= step && styles.progressActive]} />)}
@@ -81,11 +84,9 @@ function Question({ question, value, onChange, disabled }: { question: IntakeQue
   </View>;
 }
 const styles = StyleSheet.create({
-  content: { paddingTop: 60, paddingHorizontal: 30, paddingBottom: 48, gap: 18 },
-  editContent: { paddingTop: 28, gap: 14 },
-  editTitle: { fontFamily: typography.family.base, fontSize: 28, lineHeight: 36, fontWeight: "600" },
+  content: { paddingHorizontal: spacing.xl, paddingBottom: 48, gap: 18 },
+  editContent: { gap: 14 },
   editFields: { gap: 20, paddingVertical: 8 },
-  title: { color: "white", fontFamily: typography.family.brand, fontSize: 40, lineHeight: 58 },
   fields: { gap: 30, paddingVertical: 16 },
   field: { gap: 6 },
   label: { color: colors.fg.primary, fontSize: 16, lineHeight: 24, fontWeight: "500" },

@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/ui/PageTitle";
 /**
  * Camera-based rPPG (remote photoplethysmography) measurement.
  *
@@ -111,7 +112,7 @@ function NativeCameraRppgScreen() {
   if (!permission.granted) {
     return (
       <Screen>
-        <Heading level={2}>Camera access needed</Heading>
+        <PageTitle>Camera access needed</PageTitle>
         <Body tone="muted">
           Kairos needs the front camera to estimate your heart rate.
           Your video is sent to our analysis server and never stored.
@@ -197,7 +198,7 @@ function NativeCameraRppgScreen() {
   if (stage === "result" && result) {
     return (
       <Screen>
-        <Heading level={2}>Result</Heading>
+        <PageTitle>Result</PageTitle>
         <Card>
           <Body tone="muted">Heart rate</Body>
           <Heading level={1}>{result.bpm} bpm</Heading>
@@ -229,7 +230,7 @@ function NativeCameraRppgScreen() {
   if (stage === "error") {
     return (
       <Screen>
-        <Heading level={2}>Something went wrong</Heading>
+        <PageTitle>Something went wrong</PageTitle>
         <Card>
           <Body>{errorMessage ?? "Couldn't complete the measurement."}</Body>
         </Card>
@@ -363,7 +364,8 @@ const FACE_GUIDE_SIZE = 240;
 
 const styles = StyleSheet.create({
   cameraContainer: {
-    padding: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
     gap: 0,
   },
   cameraFrame: {

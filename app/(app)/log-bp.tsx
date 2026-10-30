@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/ui/PageTitle";
 /**
  * Manual blood pressure entry.
  *
@@ -16,7 +17,6 @@ import { router } from "expo-router";
 import { Body } from "@/components/ui/Body";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Heading } from "@/components/ui/Heading";
 import { Screen } from "@/components/ui/Screen";
 import { useKpin } from "@/hooks/useKpin";
 import { validateBpInput } from "@/lib/bp-validation";
@@ -120,7 +120,7 @@ export default function LogBpScreen() {
 
   return (
     <Screen>
-      <Heading level={2}>Log blood pressure</Heading>
+      <PageTitle>Log blood pressure</PageTitle>
       <Card>
         <View style={styles.field}>
           <Body tone="muted" size="sm">

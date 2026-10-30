@@ -1,8 +1,8 @@
+import { PageTitle } from "@/components/ui/PageTitle";
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Screen } from '@/components/ui/Screen';
-import { Heading } from '@/components/ui/Heading';
 import { Body } from '@/components/ui/Body';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/TextField';
@@ -24,7 +24,7 @@ export default function EditHealthProfileScreen() {
   if (!user || !profile) return <Screen><ActivityIndicator color="white" /></Screen>;
   if (requested === 'personal') return <PersonalEditor key={user.id} userId={user.id} profile={profile} refresh={refresh} />;
   const section = typeof requested === 'string' ? profileSections(profile.stage).find(s => s.id === requested) : undefined;
-  if (!section) return <Screen><Heading level={2}>Choose a section</Heading><Body>Your health stage may have changed. Pick the section you want to edit from your profile.</Body><Button label="Back to health profile" onPress={returnToProfile} /></Screen>;
+  if (!section) return <Screen><PageTitle>Choose a section</PageTitle><Body>Your health stage may have changed. Pick the section you want to edit from your profile.</Body><Button label="Back to health profile" onPress={returnToProfile} /></Screen>;
   const history = section.table === 'pregnancy_history' ? pregnancyHistory : familyHistory;
   return <HistoryEditor key={`${user.id}:${section.id}:${history?.id ?? 'new'}`} userId={user.id} stage={profile.stage} section={section} history={history} refresh={refresh} />;
 }
@@ -75,7 +75,7 @@ function PersonalEditor({ userId, profile, refresh }: { userId: string; profile:
   }
   const stages: { label: string; value: PregnancyStage }[] = [{ label: 'Planning a pregnancy', value: 'planning' }, { label: 'Pregnant', value: 'pregnant' }, { label: 'Postpartum', value: 'postpartum' }];
   return <Screen contentStyle={styles.content}>
-    <Heading level={1}>Personal details</Heading>
+    <PageTitle>Personal details</PageTitle>
     <Body tone="muted">Edit what has changed, then save. You won’t need to repeat the questionnaire.</Body>
     <TextField label="Full name" accessibilityLabel="Full name" value={name} onChangeText={setName} maxLength={120} editable={!saving} />
     <View style={styles.stages} accessibilityRole="radiogroup" accessibilityLabel="Current stage"><Body>Current stage</Body>{stages.map(s => <Pressable key={s.value} accessibilityRole="radio" accessibilityLabel={s.label} accessibilityState={{ checked: stage === s.value, disabled: saving }} onPress={() => setStage(s.value)} disabled={saving} style={[styles.stageChoice, stage === s.value && styles.stageSelected]}><Text style={styles.stageLabel}>{s.label}</Text></Pressable>)}</View>
@@ -87,4 +87,4 @@ function PersonalEditor({ userId, profile, refresh }: { userId: string; profile:
     <Button label="Cancel" variant="ghost" onPress={returnToProfile} disabled={saving} />
   </Screen>;
 }
-const styles = StyleSheet.create({ content: { paddingTop: 42, gap: 22 }, stages: { gap: 10 }, stageChoice: { minHeight: 48, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)', padding: 14 }, stageSelected: { borderColor: 'white', backgroundColor: 'rgba(255,255,255,0.16)' }, stageLabel: { color: 'white', fontSize: 16, textAlign: 'center' }, error: { color: '#FFE8E8', fontSize: 16, lineHeight: 24 } });
+const styles = StyleSheet.create({ content: { gap: 22 }, stages: { gap: 10 }, stageChoice: { minHeight: 48, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)', padding: 14 }, stageSelected: { borderColor: 'white', backgroundColor: 'rgba(255,255,255,0.16)' }, stageLabel: { color: 'white', fontSize: 16, textAlign: 'center' }, error: { color: '#FFE8E8', fontSize: 16, lineHeight: 24 } });

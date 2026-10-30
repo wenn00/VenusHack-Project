@@ -1,3 +1,5 @@
+import { usePageTopPadding } from "@/hooks/usePageTopPadding";
+import { PageTitle } from "@/components/ui/PageTitle";
 import React, { useState, useMemo, useEffect } from "react";
 import { StyleSheet, View, TouchableOpacity, ScrollView, Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -44,6 +46,7 @@ function mapMoodRow(row: any): MoodEntry {
  * - Modal detail views for each category with real/mocked data.
  */
 export default function HealthLogScreen() {
+  const paddingTop = usePageTopPadding();
   const { recentBp, recentMood } = useUserData();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -152,9 +155,10 @@ export default function HealthLogScreen() {
   }, [selectedDate]);
 
   return (
-    <Screen scroll={false} contentStyle={styles.screenContent}>
+    <Screen contentStyle={styles.screenContent}>
       {/* --- Calendar Section (Top Half) --- */}
-      <View style={styles.calendarContainer}>
+      <View style={[styles.calendarContainer, { paddingTop }]}>
+        <PageTitle>Health log</PageTitle>
         <View style={styles.calendarHeader}>
           <Heading level={3}>{format(currentMonth, "MMMM yyyy")}</Heading>
           <View style={styles.headerActions}>
@@ -214,7 +218,7 @@ export default function HealthLogScreen() {
           {isToday(selectedDate) ? "Today's Log" : format(selectedDate, "EEEE, MMMM do")}
         </Heading>
 
-        <ScrollView contentContainerStyle={styles.rowsContent}>
+        <View style={styles.rowsContent}>
           <TouchableOpacity style={styles.detailRow} onPress={() => setDetailView("heart")}>
             <View style={[styles.iconBox, { backgroundColor: colors.status.redBg }]}>
               <Ionicons name="heart" size={22} color={colors.status.red} />
@@ -253,7 +257,7 @@ export default function HealthLogScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.border.strong} />
           </TouchableOpacity>
-        </ScrollView>
+        </View>
       </View>
 
       {/* --- Detail Modal --- */}
@@ -337,7 +341,7 @@ const styles = StyleSheet.create({
   },
   calendarContainer: {
     backgroundColor: colors.bg.card,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.xl,
     paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.default,
@@ -410,8 +414,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.status.red,
   },
   detailsContainer: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
   },
   detailsTitle: {

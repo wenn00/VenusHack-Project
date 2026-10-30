@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/ui/PageTitle";
 import { useRef, useState } from "react";
 import { StyleSheet, Text, View, Alert } from "react-native";
 import { router } from "expo-router";
@@ -9,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
 import { validIntakeDate } from "@/lib/intake";
 import { supabase } from "@/services/supabase";
-import { spacing, typography } from "@/theme";
+import { spacing } from "@/theme";
 import { PregnancyStage } from "@/types";
 
 export default function IntakeBasicScreen() {
@@ -80,7 +81,7 @@ export default function IntakeBasicScreen() {
   return (
     <Screen contentStyle={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.title}>Onboarding</Text>
+        <PageTitle>Onboarding</PageTitle>
         <Body tone="muted" size="lg">
           Pregnancy is like being on the treadmill for 9 months, so where are you right now?
         </Body>
@@ -130,18 +131,10 @@ export default function IntakeBasicScreen() {
 
 const styles = StyleSheet.create({
   screen: {
-    paddingHorizontal: 40,
-    paddingTop: 70,
     gap: 32,
   },
   header: {
     gap: spacing.xs,
-  },
-  title: {
-    color: "white",
-    fontSize: 36,
-    lineHeight: 44,
-    fontFamily: typography.family.brand,
   },
   form: {
     gap: 37,

@@ -73,7 +73,6 @@ export default function DemoEntryScreen() {
 const styles = StyleSheet.create({
   screen: {
     paddingHorizontal: 40,
-    paddingTop: 120,
     gap: spacing.md,
   },
   center: {

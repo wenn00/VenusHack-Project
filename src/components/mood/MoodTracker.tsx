@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BrandHeader } from "@/components/ui/BrandHeader";
+import { type Ref, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   Animated,
@@ -15,7 +16,7 @@ import {
 import { useFocusEffect } from "expo-router";
 import Svg, { Defs, RadialGradient, Rect, Stop } from "react-native-svg";
 import { Mood } from "@/types";
-import { colors, radius, typography } from "@/theme";
+import { colors, radius } from "@/theme";
 import { MOOD_KEYFRAMES, MOOD_POINT, MOOD_TIMING, MoodPhase, moodMenuVisible, moodOrbFrames, smoothMoodTrack } from "./mood-motion";
 
 const OPTIONS: { mood: Mood; label: string; color: string; message: string }[] = [
@@ -61,6 +62,8 @@ function useMoodMotion() {
 
 interface Props {
   firstName?: string;
+  notesInputRef?: Ref<TextInput>;
+  onNotesFocus?: () => void;
   isSaving: boolean;
   error: string | null;
   onSave: (mood: Mood, note: string) => void;
@@ -68,9 +71,10 @@ interface Props {
 }
 
 /** Figma's five luminous emotions, with optional motion layered over a static layout. */
-export function MoodTracker({ firstName, isSaving, error, onSave, onMenuVisibleChange }: Props) {
+export function MoodTracker({ firstName, isSaving, error, onSave, onMenuVisibleChange, notesInputRef, onNotesFocus }: Props) {
   const [selected, setSelected] = useState<Mood | null>(null);
   const [note, setNote] = useState("");
+  const [notesHeight, setNotesHeight] = useState(0);
   const [phase, setPhase] = useState<MoodPhase>("choosing");
   const transitionLocked = useRef(false);
   const motion = useMoodMotion();
@@ -130,12 +134,8 @@ export function MoodTracker({ firstName, isSaving, error, onSave, onMenuVisibleC
   }, [phase, motion, panel, transition]);
 
   return (
-    <Animated.View style={[styles.content, {
-      // Keep overall content height stable as the notes move up, preventing a
-      // scrollbar/layout shift at the handoff from the orb to the form.
-      paddingBottom: panel.interpolate({ inputRange: [0, 1], outputRange: [100, 100 + clusterWidth + 38 - 218] }),
-    }]}>
-      <Text style={styles.brand}>Kairos</Text>
+    <View style={styles.content}>
+      <BrandHeader />
       <View style={styles.heading} accessibilityLiveRegion="polite">
         {/* Reserve the longest response at the current width/font size so a
             multi-line greeting never pushes the orb when it fades in. */}
@@ -169,15 +169,17 @@ export function MoodTracker({ firstName, isSaving, error, onSave, onMenuVisibleC
               setPhase("selecting");
             }} />
         ))}
-        {!selected && <Text style={[styles.footnote, styles.choicesFootnote]}>There is no right or wrong answer.</Text>}
       </Animated.View>
+      {!selected && <Text style={styles.footnote}>There is no right or wrong answer.</Text>}
 
         <Animated.View pointerEvents={showDetails ? "auto" : "none"} aria-hidden={!showDetails}
           accessibilityElementsHidden={!showDetails}
-          importantForAccessibility={!showDetails ? "no-hide-descendants" : "auto"} style={[styles.notes, {
+          importantForAccessibility={!showDetails ? "no-hide-descendants" : "auto"} style={[styles.notesReveal, {
+          height: panel.interpolate({ inputRange: [0, 1], outputRange: [0, notesHeight] }),
           opacity: panel,
           transform: [{ translateY: panel.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
         }]}>
+          <View style={styles.notes} onLayout={({ nativeEvent }) => setNotesHeight(nativeEvent.layout.height)}>
           <Pressable accessibilityRole="button" onPress={() => {
             if (transitionLocked.current || isSaving || phase !== "selected") return;
             transitionLocked.current = true;
@@ -187,7 +189,7 @@ export function MoodTracker({ firstName, isSaving, error, onSave, onMenuVisibleC
             disabled={isSaving || phase !== "selected"} style={styles.changeButton}>
             <Text style={styles.changeText}>Choose a different feeling</Text>
           </Pressable>
-          <TextInput accessibilityLabel="Notes about your mood" value={note} onChangeText={setNote}
+          <TextInput ref={notesInputRef} onFocus={onNotesFocus} accessibilityLabel="Notes about your mood" value={note} onChangeText={setNote}
             tabIndex={showDetails ? 0 : -1} focusable={showDetails}
             multiline maxLength={4000} placeholder="Leave some notes (optional)"
             placeholderTextColor="rgba(255,255,255,0.64)" style={styles.noteInput} editable={!isSaving && phase === "selected"} />
@@ -199,8 +201,9 @@ export function MoodTracker({ firstName, isSaving, error, onSave, onMenuVisibleC
             <Text style={styles.saveText}>{isSaving ? "Saving…" : "Save & return home"}</Text>
           </Pressable>
           <Text style={styles.footnote}>Every feeling belongs here.</Text>
+          </View>
         </Animated.View>
-    </Animated.View>
+    </View>
   );
 }
 
@@ -317,9 +320,8 @@ function MoodOrb({ item, index, width, motion, breathing, selected, disabled, on
 }
 
 const styles = StyleSheet.create({
-  content: { width: "100%", paddingTop: 30, paddingBottom: 100 },
-  brand: { alignSelf: "center", color: colors.fg.primary, fontFamily: typography.family.brand, fontSize: 20, lineHeight: 28 },
-  heading: { marginTop: 54, minHeight: 126, gap: 12 },
+  content: { width: "100%", paddingTop: 0 },
+  heading: { marginTop: 0, minHeight: 126, gap: 12 },
   headingSizer: { gap: 12, opacity: 0 },
   headingLayer: { position: "absolute", top: 0, left: 0, right: 0, gap: 12 },
   title: { color: colors.fg.primary, fontSize: 34, lineHeight: 42, fontWeight: "400", letterSpacing: -0.4 },
@@ -328,14 +330,15 @@ const styles = StyleSheet.create({
   orbPosition: { position: "absolute" },
   glowLayer: { position: "absolute" },
   orbLabel: { position: "absolute", width: "100%", color: "rgba(255,255,255,0.88)", fontSize: 13, lineHeight: 20, textAlign: "center" },
-  notes: { width: "100%", gap: 12 },
+  notesReveal: { width: "100%", overflow: "hidden" },
+  // Measure independently of the animated height; hidden notes occupy no scroll space.
+  notes: { position: "absolute", top: 0, left: 0, width: "100%", gap: 12 },
   changeButton: { alignSelf: "center", minHeight: 44, justifyContent: "center", paddingHorizontal: 12 },
   changeText: { color: "rgba(255,255,255,0.86)", fontSize: 14, textDecorationLine: "underline" },
-  noteInput: { minHeight: 152, borderWidth: 1, borderColor: colors.border.default, borderRadius: radius.sm, paddingHorizontal: 18, paddingVertical: 14, color: colors.fg.primary, backgroundColor: "rgba(255,255,255,0.03)", fontSize: 16, lineHeight: 24, textAlignVertical: "top" },
+  noteInput: { height: 152, borderWidth: 1, borderColor: colors.border.default, borderRadius: radius.sm, paddingHorizontal: 18, paddingVertical: 14, color: colors.fg.primary, backgroundColor: "rgba(255,255,255,0.03)", fontSize: 16, lineHeight: 24, textAlignVertical: "top" },
   saveButton: { minHeight: 55, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border.default, borderRadius: radius.sm, backgroundColor: "rgba(0,51,150,0.22)" },
   saveText: { color: colors.fg.primary, fontSize: 14, lineHeight: 20, fontWeight: "600" },
   dimmed: { opacity: 0.6 },
   footnote: { marginTop: 18, color: "rgba(255,255,255,0.7)", fontSize: 13, lineHeight: 20, textAlign: "center" },
-  choicesFootnote: { position: "absolute", top: "100%", width: "100%" },
   error: { color: "#FFE4DE", lineHeight: 22, fontSize: 14 },
 });

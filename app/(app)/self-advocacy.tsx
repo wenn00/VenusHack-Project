@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/ui/PageTitle";
 /**
  * Self-advocacy scripts — static placeholder content.
  *
@@ -31,7 +32,7 @@ const TIPS = [
 export default function SelfAdvocacyScreen() {
   return (
     <Screen>
-      <Heading level={2}>How to advocate for yourself</Heading>
+      <PageTitle>How to advocate for yourself</PageTitle>
       <Body tone="muted">
         Your concerns are valid. These scripts are here when you need help putting words to them.
       </Body>

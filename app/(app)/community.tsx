@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/ui/PageTitle";
 /**
  * Community resources — static directory.
  *
@@ -61,7 +62,7 @@ const RESOURCES: Resource[] = [
 export default function CommunityScreen() {
   return (
     <Screen>
-      <Heading level={2}>You're not alone</Heading>
+      <PageTitle>You're not alone</PageTitle>
       <Body tone="muted">
         Real resources from real organisations — vetted for the things
         you're navigating right now.
