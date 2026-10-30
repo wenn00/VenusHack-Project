@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/ui/PageTitle";
 /**
  * Doctor Visit Prep.
  *
@@ -167,7 +168,7 @@ export default function DoctorPrepScreen() {
   if (stage === "loading") {
     return (
       <Screen>
-        <Heading level={2}>{loadingSaved ? "Loading your saved summary…" : "Preparing your visit summary…"}</Heading>
+        <PageTitle>{loadingSaved ? "Loading your saved summary…" : "Preparing your visit summary…"}</PageTitle>
         <Card>
           <View style={styles.loadingRow}>
             <ActivityIndicator size="large" color={colors.accent.rose} />
@@ -185,7 +186,7 @@ export default function DoctorPrepScreen() {
     const hasUrgent = summary.urgent_concerns.length > 0;
     return (
       <Screen>
-        <Heading level={2}>Your visit summary</Heading>
+        <PageTitle>Your visit summary</PageTitle>
         <Body tone="muted">
           Generated {new Date(generatedAt).toLocaleDateString()} · Based on the past {DAYS_BACK} days
         </Body>
@@ -225,7 +226,7 @@ export default function DoctorPrepScreen() {
   if (stage === "error") {
     return (
       <Screen>
-        <Heading level={2}>Summary unavailable</Heading>
+        <PageTitle>Summary unavailable</PageTitle>
         <Card>
           <Body>{errorMessage ?? "Unknown error"}</Body>
         </Card>
@@ -240,7 +241,7 @@ export default function DoctorPrepScreen() {
   // idle
   return (
     <Screen>
-      <Heading level={2}>Prepare for your visit</Heading>
+      <PageTitle>Prepare for your visit</PageTitle>
       <Body tone="muted">
         Walk into your appointment with a clear, organised summary of how
         you have actually been — backed by data — and a list of questions

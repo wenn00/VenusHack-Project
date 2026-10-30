@@ -8,14 +8,14 @@ import { router } from "expo-router";
 import { callOb, openNearestErDirections, openUrlSafely } from "@/lib/linking";
 import { Body } from "@/components/ui/Body";
 import { Button } from "@/components/ui/Button";
-import { Heading } from "@/components/ui/Heading";
+import { PageTitle } from "@/components/ui/PageTitle";
 import { Screen } from "@/components/ui/Screen";
 import { spacing } from "@/theme";
 
 export default function EmergencyScreen() {
   return (
     <Screen contentStyle={styles.container}>
-      <Heading level={2}>Emergency actions</Heading>
+      <PageTitle>Emergency actions</PageTitle>
       <Body tone="muted">Pick whichever you need right now.</Body>
 
       <Button label="Call 911" onPress={() => void openUrlSafely("tel:911")} />

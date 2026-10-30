@@ -1,5 +1,6 @@
+import { PageTitle } from "@/components/ui/PageTitle";
 import { useEffect, useState } from "react";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Body } from "@/components/ui/Body";
 import { Button } from "@/components/ui/Button";
@@ -9,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
 import { isValidDateOfBirth } from "@/lib/dob";
 import { supabase } from "@/services/supabase";
-import { spacing, typography } from "@/theme";
+import { spacing } from "@/theme";
 
 export default function SignupScreen() {
   const params = useLocalSearchParams<{ email?: string }>();
@@ -119,7 +120,7 @@ export default function SignupScreen() {
   return (
     <Screen contentStyle={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.title}>{step === "form" ? "Onboarding" : "Verify Email"}</Text>
+        <PageTitle>{step === "form" ? "Onboarding" : "Verify Email"}</PageTitle>
         <Body tone="muted" size="lg">
           {step === "form" ? "First, what’s your name?" : `Enter the code sent to ${email}`}
         </Body>
@@ -212,18 +213,10 @@ export default function SignupScreen() {
 
 const styles = StyleSheet.create({
   screen: {
-    paddingHorizontal: 40,
-    paddingTop: 70,
     gap: 32,
   },
   header: {
     gap: spacing.xs,
-  },
-  title: {
-    color: "white",
-    fontSize: 36,
-    lineHeight: 44,
-    fontFamily: typography.family.display,
   },
   form: {
     gap: 37,

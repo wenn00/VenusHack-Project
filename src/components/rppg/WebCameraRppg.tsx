@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/ui/PageTitle";
 /**
  * Web camera heart-rate measurement.
  *
@@ -166,7 +167,7 @@ export function WebCameraRppg() {
   if (stage === "unsupported") {
     return (
       <Screen>
-        <Heading level={2}>Camera measurement unavailable</Heading>
+        <PageTitle>Camera measurement unavailable</PageTitle>
         <Body tone="muted">
           This browser can&apos;t record video. Try the latest Safari or Chrome, or use the mobile app.
         </Body>
@@ -178,7 +179,7 @@ export function WebCameraRppg() {
   if (stage === "denied") {
     return (
       <Screen>
-        <Heading level={2}>Camera access needed</Heading>
+        <PageTitle>Camera access needed</PageTitle>
         <Body tone="muted">
           Camera access was blocked. Allow camera access for this site in your browser settings, then try again.
         </Body>
@@ -191,7 +192,7 @@ export function WebCameraRppg() {
   if (stage === "result" && result) {
     return (
       <Screen>
-        <Heading level={2}>Result</Heading>
+        <PageTitle>Result</PageTitle>
         <Card>
           <Body tone="muted">Heart rate</Body>
           <Heading level={1}>{result.bpm} bpm</Heading>
@@ -219,7 +220,7 @@ export function WebCameraRppg() {
   if (stage === "error") {
     return (
       <Screen>
-        <Heading level={2}>Something went wrong</Heading>
+        <PageTitle>Something went wrong</PageTitle>
         <Card>
           <Body>{errorMessage ?? "Couldn't complete the measurement."}</Body>
         </Card>
