@@ -131,9 +131,27 @@ export function evaluateSymptoms(report: SymptomReport): KpinEvaluation {
 }
 
 /**
- * Evaluate an rPPG measurement.
+ * How recent the previous camera reading must be to confirm this one. Long
+ * enough to rest a few minutes and re-measure, short enough that both
+ * readings describe the same episode.
  */
-export function evaluateRppg(vitals: VitalsLog): KpinEvaluation {
+export const RPPG_CONFIRM_WINDOW_MS = 30 * 60 * 1000;
+
+/**
+ * Two separate camera readings are at least one 20 s recording apart; closer
+ * ones are the same reading saved twice (e.g. a double-tapped Save button).
+ */
+const RPPG_MIN_GAP_MS = 20 * 1000;
+
+/**
+ * Evaluate an rPPG measurement.
+ *
+ * A camera estimate can be misread (e.g. the pulse's harmonic at 2x the
+ * heart rate), so one reading never raises red on its own: a very high
+ * first reading asks the user to rest and re-measure, and red needs the
+ * user's previous camera reading — taken shortly before — to be very high too.
+ */
+export function evaluateRppg(vitals: VitalsLog, previous: VitalsLog | null = null): KpinEvaluation {
   if (!vitals.heartRate) {
     return makeEvaluation("green", [], {
       message: "Reading saved.",
@@ -144,17 +162,37 @@ export function evaluateRppg(vitals: VitalsLog): KpinEvaluation {
   }
 
   const t = KPIN_THRESHOLDS.hr;
+  const hr = vitals.heartRate;
+  const prior = recentEarlierHeartRate(vitals, previous);
 
-  if (vitals.heartRate >= t.severeBpm) {
+  if (hr >= t.severeBpm && prior !== null && prior >= t.severeBpm) {
     return makeEvaluation("red", ["hr_elevated"], {
       message: "Your heart rate is high.",
-      detail: `An estimated ${vitals.heartRate} BPM is well above the typical range during pregnancy. Please contact your OB.`,
+      detail: `Two readings in a row (${prior} and ${hr} BPM, estimated) are well above the typical range during pregnancy. Please contact your OB.`,
       primary: { label: "Call my OB", kind: "call_ob" },
       secondary: [{ label: "Re-measure", kind: "dismiss" }],
     });
   }
 
-  if (vitals.heartRate >= t.elevatedBpm) {
+  if (hr >= t.elevatedBpm && prior !== null && prior >= t.elevatedBpm) {
+    return makeEvaluation("yellow", ["hr_elevated"], {
+      message: "Elevated heart rate on two readings.",
+      detail: `${prior} and ${hr} BPM (estimated) are above the typical range. Rest, and contact your OB if it stays high or you feel unwell.`,
+      primary: { label: "Got it", kind: "dismiss" },
+      secondary: [],
+    });
+  }
+
+  if (hr >= t.severeBpm) {
+    return makeEvaluation("yellow", ["hr_elevated"], {
+      message: "That reading was high.",
+      detail: `An estimated ${hr} BPM. Camera readings can be thrown off by movement or lighting. Sit quietly for 5 minutes, then measure again.`,
+      primary: { label: "Got it", kind: "dismiss" },
+      secondary: [],
+    });
+  }
+
+  if (hr >= t.elevatedBpm) {
     return makeEvaluation("yellow", ["hr_elevated"], {
       message: "Slightly elevated heart rate.",
       detail: `An estimated ${vitals.heartRate} BPM is on the higher side. Rest for a few minutes and try measuring again.`,
@@ -182,6 +220,13 @@ export function summarizeKpin(evaluations: KpinEvaluation[]): KpinLevel {
 }
 
 // ---- helpers ----------------------------------------------------------
+
+/** The previous reading's heart rate if it is a separate reading taken shortly before `current`. */
+function recentEarlierHeartRate(current: VitalsLog, previous: VitalsLog | null): number | null {
+  if (!previous?.heartRate) return null;
+  const gapMs = Date.parse(current.measuredAt) - Date.parse(previous.measuredAt);
+  return gapMs >= RPPG_MIN_GAP_MS && gapMs <= RPPG_CONFIRM_WINDOW_MS ? previous.heartRate : null;
+}
 
 function symptomToTrigger(symptom: SymptomKey): KpinTriggerSource {
   switch (symptom) {
