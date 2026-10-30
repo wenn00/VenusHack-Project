@@ -38,11 +38,15 @@ class RppgError(Exception):
         self.code = code
 
 
-# Indices into MediaPipe FaceMesh's 468 landmarks that outline the forehead +
-# both cheeks. Tuned for good signal-to-noise on typical front-camera framing.
-FOREHEAD_LANDMARKS = [10, 67, 109, 338, 297]
-LEFT_CHEEK_LANDMARKS = [50, 101, 119, 117]
-RIGHT_CHEEK_LANDMARKS = [280, 330, 348, 346]
+# Indices into MediaPipe FaceMesh's 468 landmarks, in outline order, for the
+# forehead + both cheeks. The forehead band runs from the mid-forehead ring
+# down to the top edge of the eyebrows, staying clear of the hairline; each
+# cheek sits below the eye and lateral to the nose. On the canonical face the
+# areas are ~9.2 cm² (forehead) and ~7.9 cm² (each cheek) —
+# tests/test_roi_geometry.py pins that they stay large and non-self-crossing.
+FOREHEAD_LANDMARKS = [69, 108, 151, 337, 299, 296, 336, 9, 107, 66]
+LEFT_CHEEK_LANDMARKS = [117, 118, 119, 100, 36, 205, 187, 123]
+RIGHT_CHEEK_LANDMARKS = [346, 347, 348, 329, 266, 425, 411, 352]
 
 # NOTE: FaceMesh is created per video (see _extract_face_rgb). A module-level
 # instance in tracking mode (static_image_mode=False) carries landmark state
