@@ -10,7 +10,7 @@ export interface RppgResult {
   framesAnalyzed: number;
 }
 
-export type RppgErrorCode = "FACE_NOT_DETECTED" | "LOW_QUALITY_VIDEO" | "INTERNAL_ERROR" | "TIMEOUT";
+export type RppgErrorCode = "FACE_NOT_DETECTED" | "LOW_QUALITY_VIDEO" | "INTERNAL_ERROR" | "TIMEOUT" | "SERVER_BUSY";
 
 export class RppgError extends Error {
   constructor(public code: RppgErrorCode, message: string) {

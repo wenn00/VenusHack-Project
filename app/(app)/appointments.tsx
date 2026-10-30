@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/ui/PageTitle";
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
@@ -63,7 +64,7 @@ export default function AppointmentsScreen() {
     </Card>) : <Body tone="muted">{upcoming ? 'No upcoming visits yet.' : 'No past visits yet.'}</Body>;
   }
   return <Screen contentStyle={styles.screen}>
-    <Heading level={1}>Appointment Prep</Heading>
+    <PageTitle>Appointment Prep</PageTitle>
     <Button label={editing ? 'Close new appointment' : 'Log an upcoming appointment'} disabled={saving} onPress={() => setEditing(v => !v)} />
     {editing && <Card>
       <TextField label="Visit title" value={title} onChangeText={setTitle} maxLength={120} editable={!saving} />
@@ -78,4 +79,4 @@ export default function AppointmentsScreen() {
     <Body size="sm" tone="muted">Visits are dates in your local calendar. This records your plans; it does not book an appointment with a provider. Showing the next 100 upcoming and latest 100 past visits.</Body>
   </Screen>;
 }
-const styles = StyleSheet.create({ screen: { paddingTop: 56, paddingBottom: 120, gap: 24 } });
+const styles = StyleSheet.create({ screen: { paddingBottom: 120, gap: 24 } });

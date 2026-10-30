@@ -15,6 +15,7 @@ import anyio.to_thread
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
+from job_gate import GateFull, JobGate
 from rppg import RppgError, process_video
 
 # A 20 s 720p clip is ~10-20 MB; anything bigger is not a legitimate
@@ -22,6 +23,11 @@ from rppg import RppgError, process_video
 # bounded and streamed to disk rather than buffered whole.
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 READ_CHUNK_BYTES = 1024 * 1024
+
+# One measurement at a time plus one in line: a single job already takes
+# ~40-60 s on the free dyno, so a longer queue would outlast the client's
+# timeout. Everyone else gets SERVER_BUSY straight away.
+gate = JobGate(max_running=1, max_waiting=1)
 
 app = FastAPI(title="Kairos rPPG API", version="0.1.0")
 
@@ -41,6 +47,20 @@ def health() -> dict[str, str]:
 
 @app.post("/measure")
 async def measure(video: UploadFile = File(...)) -> dict[str, object]:
+    try:
+        async with gate.slot():
+            return await _measure(video)
+    except GateFull:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "SERVER_BUSY",
+                "message": "Someone else is measuring right now. Please try again in a minute.",
+            },
+        ) from None
+
+
+async def _measure(video: UploadFile) -> dict[str, object]:
     temp_path = f"/tmp/{uuid.uuid4().hex}.mp4"
     try:
         size = 0

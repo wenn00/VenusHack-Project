@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/ui/PageTitle";
 /**
  * Voice Journal.
  *
@@ -98,7 +99,7 @@ export default function VoiceJournalScreen() {
     const hasRedFlag = summary.red_flag_symptoms.length > 0;
     return (
       <Screen>
-        <Heading level={2}>Saved & analyzed</Heading>
+        <PageTitle>Saved & analyzed</PageTitle>
         <Body tone="muted">Here's what Kairos picked out from what you said.</Body>
 
         <Card>
@@ -160,7 +161,7 @@ export default function VoiceJournalScreen() {
 
   return (
     <Screen>
-      <Heading level={2}>Voice journal</Heading>
+      <PageTitle>Voice journal</PageTitle>
       <Body tone="muted">A moment to check in with yourself</Body>
       <Body tone="muted">
         Tell Kairos how you're feeling today — symptoms, mood, anything on your

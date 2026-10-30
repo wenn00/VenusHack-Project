@@ -1,3 +1,5 @@
+import { BrandHeader } from "@/components/ui/BrandHeader";
+import { PageTitle } from "@/components/ui/PageTitle";
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
@@ -7,7 +9,7 @@ import { Body } from '@/components/ui/Body';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/services/supabase';
 import { Metric, metricLabels, PressureRow, readingsFor, sourceLabel, VitalRow } from '@/lib/vitals-overview';
-import { colors, typography } from '@/theme';
+import { colors } from '@/theme';
 
 const metrics: Metric[] = ['heart_rate', 'blood_pressure', 'hrv', 'sleep'];
 export default function VitalsScreen() {
@@ -39,9 +41,8 @@ export default function VitalsScreen() {
   const readings = readingsFor(metric, vitals, bp);
   const latest = readings[0];
   const label = metricLabels[metric];
-  return <Screen contentStyle={styles.screen}>
-    <Text style={styles.brand}>Kairos</Text>
-    <View style={styles.heading}><Text style={styles.title}>Overview</Text><Body>{label.description}</Body></View>
+  return <Screen contentStyle={styles.screen} header={<BrandHeader />}>
+    <View style={styles.heading}><PageTitle>Overview</PageTitle><Body>{label.description}</Body></View>
     <View accessibilityRole="tablist" style={styles.tabs}>
       {metrics.map(m => <Pressable key={m} accessibilityRole="tab" accessibilityState={{ selected: metric === m }} onPress={() => setMetric(m)} style={[styles.tab, metric === m && styles.activeTab]}><Text style={styles.tabText}>{m === 'hrv' ? 'HRV' : metricLabels[m].title}</Text></Pressable>)}
     </View>
@@ -64,9 +65,8 @@ export default function VitalsScreen() {
   </Screen>;
 }
 const styles = StyleSheet.create({
-  screen: { paddingTop: 40, paddingBottom: 120, gap: 24 },
-  brand: { color: 'white', fontFamily: typography.family.brand, fontSize: 24, textAlign: 'center', marginBottom: 24 },
-  heading: { gap: 8 }, title: { color: 'white', fontSize: 36, lineHeight: 44 },
+  screen: { paddingTop: 0, paddingBottom: 120, gap: 24 },
+  heading: { gap: 8 },
   tabs: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, tab: { borderWidth: 1, borderColor: colors.border.default, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 }, activeTab: { backgroundColor: colors.bg.muted, borderColor: 'white' }, tabText: { color: 'white', fontSize: 14 },
   orb: { width: 253, height: 253, maxWidth: '100%', alignSelf: 'center', borderRadius: 130, borderWidth: 2, borderTopColor: '#DCF2FF', borderLeftColor: '#84C3FF', borderBottomColor: '#96BAFF', borderRightColor: '#4676D9', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(60,95,235,0.32)', gap: 8 },
   value: { color: 'white', fontSize: 58, fontWeight: '500', maxWidth: '90%' }, unit: { color: colors.fg.secondary, fontSize: 16 },

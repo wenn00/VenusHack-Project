@@ -19,6 +19,7 @@ import {
   normalizeDoctorSummary,
   normalizeVoiceJournalSummary,
 } from "@/lib/ai-normalize";
+import { userFacingAiMessage } from "@/lib/ai-errors";
 import {
   buildChatSystemPrompt,
   ChatSystemContext,
@@ -32,12 +33,13 @@ import { ChatMessage, VoiceJournalSummary } from "@/types";
 export type { DoctorSummary } from "@/lib/ai-normalize";
 
 /**
- * Thrown when the proxy refuses an anonymous (dev "skip") session. Its
- * message is safe to show to the user, unlike other AI errors.
+ * Thrown when the proxy refuses a call for a reason the user can act on
+ * (no email sign-in, demo limit reached, gateway busy). Its message is safe
+ * to show to the user, unlike other AI errors.
  */
 export class AiAccessError extends Error {
-  constructor() {
-    super("AI features need an email sign-in. Sign out and sign in with your email to use them.");
+  constructor(message: string) {
+    super(message);
     this.name = "AiAccessError";
   }
 }
@@ -72,8 +74,9 @@ async function callZotGpt(
       const payload = await error.context.json().catch(() => null);
       code = payload?.error?.code ?? `http_${error.context.status}`;
     }
-    if (code === "anonymous_not_allowed") {
-      throw new AiAccessError();
+    const userMessage = userFacingAiMessage(code);
+    if (userMessage) {
+      throw new AiAccessError(userMessage);
     }
     // Keep the provider/proxy detail in the console; callers may show
     // the message to patients.

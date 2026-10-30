@@ -1,5 +1,5 @@
-import React, { useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useSegments } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,11 +17,12 @@ const menuItems: { label: string; icon: IconName; href: string; route: string }[
   { label: "Resources", icon: "bookmark-outline", href: "/(app)/community", route: "community" },
   { label: "History", icon: "time-outline", href: "/(app)/health-log", route: "health-log" },
   { label: "Test Heart Rate", icon: "camera-outline", href: "/(app)/camera-rppg", route: "camera-rppg" },
-  { label: "Update health profile", icon: "person-outline", href: "/(auth)/intake-basic", route: "intake-basic" },
+  { label: "Update health profile", icon: "person-outline", href: "/(app)/health-profile", route: "health-profile" },
   { label: "Homepage", icon: "home-outline", href: "/(app)/dashboard", route: "dashboard" },
 ];
 
-export function AppMenuButton() {
+/** `visible={false}` fades the button out of the way of a screen's own controls. */
+export function AppMenuButton({ visible = true }: { visible?: boolean }) {
   const segments = useSegments();
   const { signOut } = useAuth();
   const { height } = useWindowDimensions();
@@ -30,6 +31,14 @@ export function AppMenuButton() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const signingOutRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [fade] = useState(() => new Animated.Value(visible ? 1 : 0));
+  useEffect(() => {
+    const animation = Animated.timing(fade, {
+      toValue: visible ? 1 : 0, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [fade, visible]);
   const currentRoute = segments[segments.length - 1];
   if (segments[0] !== "(app)") return null;
 
@@ -53,12 +62,18 @@ export function AppMenuButton() {
 
   return (
     <>
-      <Pressable accessibilityRole="button" accessibilityLabel="Open menu"
-        accessibilityState={{ expanded: isOpen }}
-        onPress={() => { setError(null); setIsOpen(true); }}
-        style={({ pressed }) => [styles.menuButton, { bottom: 20 + insets.bottom }, pressed && styles.pressed]}>
-        <Ionicons name="menu" size={32} color={colors.fg.primary} />
-      </Pressable>
+      <Animated.View pointerEvents={visible ? "box-none" : "none"} aria-hidden={!visible}
+        accessibilityElementsHidden={!visible} importantForAccessibility={visible ? "auto" : "no-hide-descendants"}
+        style={[styles.menuPosition, { bottom: 20 + insets.bottom, opacity: fade }]}>
+        {/* Not `disabled`: on web that makes the button box-none, which lets
+            the hidden icon keep catching taps meant for controls beneath it. */}
+        <Pressable accessibilityRole="button" accessibilityLabel="Open menu"
+          accessibilityState={{ expanded: isOpen }} tabIndex={visible ? 0 : -1}
+          onPress={() => { if (!visible) return; setError(null); setIsOpen(true); }}
+          style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}>
+          <Ionicons name="menu" size={32} color={colors.fg.primary} />
+        </Pressable>
+      </Animated.View>
       <Modal visible={isOpen} animationType="fade" transparent onRequestClose={close}>
         <View style={[styles.overlay, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityRole="button" accessibilityLabel="Close menu" />
@@ -97,8 +112,8 @@ export function AppMenuButton() {
   );
 }
 const styles = StyleSheet.create({
-  menuButton: { position: "absolute", left: 22, zIndex: 20, width: 52, height: 52,
-    borderRadius: 26, backgroundColor: "rgba(15, 57, 133, 0.8)", alignItems: "center", justifyContent: "center" },
+  menuPosition: { position: "absolute", left: 22, zIndex: 20 },
+  menuButton: { width: 52, height: 52, borderRadius: 26, backgroundColor: "rgba(15, 57, 133, 0.8)", alignItems: "center", justifyContent: "center" },
   pressed: { opacity: 0.7 },
   overlay: { flex: 1, backgroundColor: "rgba(8, 42, 113, 0.55)", justifyContent: "flex-end", paddingHorizontal: 22 },
   panel: { width: "100%", maxWidth: 340, borderRadius: 32, overflow: "hidden", backgroundColor: "rgba(221, 233, 255, 0.97)" },

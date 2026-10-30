@@ -1,3 +1,4 @@
+import { PageTitle } from "@/components/ui/PageTitle";
 /**
  * Doctor Visit Prep.
  *
@@ -27,6 +28,7 @@ import { BpRow, exportDoctorSummary, MoodRow } from "@/services/pdf";
 import { supabase } from "@/services/supabase";
 import { colors, spacing } from "@/theme";
 
+import { PopupBlockedError } from "@/lib/print-window";
 import { readSavedSummary } from "@/lib/saved-summary";
 import { validAppointmentId } from "@/lib/appointments";
 
@@ -148,7 +150,14 @@ export default function DoctorPrepScreen() {
       });
     } catch (err) {
       console.warn("[doctor-prep] export failed", err);
-      Alert.alert("Export failed", "The PDF could not be exported. Please try again.");
+      if (err instanceof PopupBlockedError) {
+        Alert.alert(
+          "Allow pop-ups",
+          "Your browser blocked the summary window. Allow pop-ups for this site, then tap Export again.",
+        );
+      } else {
+        Alert.alert("Export failed", "The PDF could not be exported. Please try again.");
+      }
     } finally {
       setIsExporting(false);
     }
@@ -159,7 +168,7 @@ export default function DoctorPrepScreen() {
   if (stage === "loading") {
     return (
       <Screen>
-        <Heading level={2}>{loadingSaved ? "Loading your saved summary…" : "Preparing your visit summary…"}</Heading>
+        <PageTitle>{loadingSaved ? "Loading your saved summary…" : "Preparing your visit summary…"}</PageTitle>
         <Card>
           <View style={styles.loadingRow}>
             <ActivityIndicator size="large" color={colors.accent.rose} />
@@ -177,7 +186,7 @@ export default function DoctorPrepScreen() {
     const hasUrgent = summary.urgent_concerns.length > 0;
     return (
       <Screen>
-        <Heading level={2}>Your visit summary</Heading>
+        <PageTitle>Your visit summary</PageTitle>
         <Body tone="muted">
           Generated {new Date(generatedAt).toLocaleDateString()} · Based on the past {DAYS_BACK} days
         </Body>
@@ -217,7 +226,7 @@ export default function DoctorPrepScreen() {
   if (stage === "error") {
     return (
       <Screen>
-        <Heading level={2}>Summary unavailable</Heading>
+        <PageTitle>Summary unavailable</PageTitle>
         <Card>
           <Body>{errorMessage ?? "Unknown error"}</Body>
         </Card>
@@ -232,7 +241,7 @@ export default function DoctorPrepScreen() {
   // idle
   return (
     <Screen>
-      <Heading level={2}>Prepare for your visit</Heading>
+      <PageTitle>Prepare for your visit</PageTitle>
       <Body tone="muted">
         Walk into your appointment with a clear, organised summary of how
         you have actually been — backed by data — and a list of questions

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Screen } from "@/components/ui/Screen";
 import { TextField } from "@/components/ui/TextField";
 import { useAuth } from "@/contexts/AuthContext";
+import { DEMO_MODE } from "@/lib/demo-mode";
 import { spacing, typography } from "@/theme";
 
 export default function LoginScreen() {
@@ -145,6 +146,13 @@ export default function LoginScreen() {
         </View>
       )}
 
+      {DEMO_MODE && (
+        <Button
+          label="Try the demo"
+          onPress={() => router.push("/(auth)/demo")}
+          disabled={isBusy}
+        />
+      )}
       <Button
         label="Create an Account"
         variant="ghost"
@@ -166,7 +174,6 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   screen: {
     paddingHorizontal: 40,
-    paddingTop: 70,
     gap: 32,
   },
   header: {

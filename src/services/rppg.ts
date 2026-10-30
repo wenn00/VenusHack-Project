@@ -9,15 +9,13 @@ import { RppgError, RppgResult } from "@/types";
 import { parseRppgErrorBody } from "./rppg-errors";
 
 const BASE_URL = process.env.EXPO_PUBLIC_RPPG_API_URL;
-// Generous enough to cover a cold-started Render free-tier dyno
-// plus MediaPipe processing on a 0.1-CPU instance.
-const REQUEST_TIMEOUT_MS = 90000;
+// Generous enough to cover MediaPipe processing on the 0.1-CPU Render
+// dyno while waiting behind one other measurement (the backend's job gate
+// runs one at a time with one caller queued).
+const REQUEST_TIMEOUT_MS = 150000;
 
+/** Native: upload the file expo-camera recorded. */
 export async function measureRppg(videoUri: string): Promise<RppgResult> {
-  if (!BASE_URL) {
-    throw new RppgError("INTERNAL_ERROR", "Missing EXPO_PUBLIC_RPPG_API_URL");
-  }
-
   const formData = new FormData();
   // React Native FormData accepts this object shape for files.
   formData.append("video", {
@@ -25,6 +23,20 @@ export async function measureRppg(videoUri: string): Promise<RppgResult> {
     type: "video/mp4",
     name: "rppg.mp4",
   } as unknown as Blob);
+  return postMeasure(formData);
+}
+
+/** Web: upload the clip MediaRecorder produced. */
+export async function measureRppgBlob(video: Blob, fileName: string): Promise<RppgResult> {
+  const formData = new FormData();
+  formData.append("video", video, fileName);
+  return postMeasure(formData);
+}
+
+async function postMeasure(formData: FormData): Promise<RppgResult> {
+  if (!BASE_URL) {
+    throw new RppgError("INTERNAL_ERROR", "Missing EXPO_PUBLIC_RPPG_API_URL");
+  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
