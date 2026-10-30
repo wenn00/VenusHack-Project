@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
-import { Keyboard, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, TextInput } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 import { MoodTracker } from "@/components/mood/MoodTracker";
 import { Screen } from "@/components/ui/Screen";
@@ -16,18 +17,30 @@ export default function LogMoodScreen() {
   const [menuVisible, setMenuVisible] = useState(true);
   const scrollRef = useRef<ScrollView>(null);
 
-  useFocusEffect(useCallback(() => {
-    let frame: number | undefined;
-    const keyboard = Keyboard.addListener("keyboardDidShow", () => {
-      // Wait for KeyboardAvoidingView to finish resizing before revealing the form.
-      if (frame !== undefined) cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+  const notesInputRef = useRef<TextInput>(null);
+  const revealFrame = useRef<number | null>(null);
+  const insets = useSafeAreaInsets();
+  const revealNotes = useCallback(() => {
+    if (Platform.OS === "web" || !Keyboard.isVisible()) return;
+    if (revealFrame.current !== null) cancelAnimationFrame(revealFrame.current);
+    revealFrame.current = requestAnimationFrame(() => {
+      revealFrame.current = null;
+      const input = notesInputRef.current;
+      if (input?.isFocused()) {
+        // The responder measures within the scroll content, so include its safe-area origin.
+        scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(input, insets.top + 16, true);
+      }
     });
+  }, [insets.top]);
+
+  useFocusEffect(useCallback(() => {
+    const keyboard = Keyboard.addListener("keyboardDidShow", revealNotes);
     return () => {
       keyboard.remove();
-      if (frame !== undefined) cancelAnimationFrame(frame);
+      if (revealFrame.current !== null) cancelAnimationFrame(revealFrame.current);
+      revealFrame.current = null;
     };
-  }, []));
+  }, [revealNotes]));
   // Synchronous guard covers rapid taps before React has disabled the button.
   const savingRef = useRef(false);
   const savedRef = useRef(false);
@@ -65,7 +78,7 @@ export default function LogMoodScreen() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <Screen scrollRef={scrollRef} contentStyle={{ paddingHorizontal: 24, paddingTop: 0, gap: 0 }} showMenu={menuVisible}>
-        <MoodTracker firstName={profile?.fullName?.trim().split(/\s+/)[0]} isSaving={isSaving} error={error} onSave={saveMood}
+        <MoodTracker notesInputRef={notesInputRef} onNotesFocus={revealNotes} firstName={profile?.fullName?.trim().split(/\s+/)[0]} isSaving={isSaving} error={error} onSave={saveMood}
           onMenuVisibleChange={setMenuVisible} />
       </Screen>
     </KeyboardAvoidingView>

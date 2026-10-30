@@ -1,5 +1,5 @@
 import { BrandHeader } from "@/components/ui/BrandHeader";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type Ref, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   Animated,
@@ -62,6 +62,8 @@ function useMoodMotion() {
 
 interface Props {
   firstName?: string;
+  notesInputRef?: Ref<TextInput>;
+  onNotesFocus?: () => void;
   isSaving: boolean;
   error: string | null;
   onSave: (mood: Mood, note: string) => void;
@@ -69,7 +71,7 @@ interface Props {
 }
 
 /** Figma's five luminous emotions, with optional motion layered over a static layout. */
-export function MoodTracker({ firstName, isSaving, error, onSave, onMenuVisibleChange }: Props) {
+export function MoodTracker({ firstName, isSaving, error, onSave, onMenuVisibleChange, notesInputRef, onNotesFocus }: Props) {
   const [selected, setSelected] = useState<Mood | null>(null);
   const [note, setNote] = useState("");
   const [notesHeight, setNotesHeight] = useState(0);
@@ -187,7 +189,7 @@ export function MoodTracker({ firstName, isSaving, error, onSave, onMenuVisibleC
             disabled={isSaving || phase !== "selected"} style={styles.changeButton}>
             <Text style={styles.changeText}>Choose a different feeling</Text>
           </Pressable>
-          <TextInput accessibilityLabel="Notes about your mood" value={note} onChangeText={setNote}
+          <TextInput ref={notesInputRef} onFocus={onNotesFocus} accessibilityLabel="Notes about your mood" value={note} onChangeText={setNote}
             tabIndex={showDetails ? 0 : -1} focusable={showDetails}
             multiline maxLength={4000} placeholder="Leave some notes (optional)"
             placeholderTextColor="rgba(255,255,255,0.64)" style={styles.noteInput} editable={!isSaving && phase === "selected"} />
@@ -333,7 +335,7 @@ const styles = StyleSheet.create({
   notes: { position: "absolute", top: 0, left: 0, width: "100%", gap: 12 },
   changeButton: { alignSelf: "center", minHeight: 44, justifyContent: "center", paddingHorizontal: 12 },
   changeText: { color: "rgba(255,255,255,0.86)", fontSize: 14, textDecorationLine: "underline" },
-  noteInput: { minHeight: 152, borderWidth: 1, borderColor: colors.border.default, borderRadius: radius.sm, paddingHorizontal: 18, paddingVertical: 14, color: colors.fg.primary, backgroundColor: "rgba(255,255,255,0.03)", fontSize: 16, lineHeight: 24, textAlignVertical: "top" },
+  noteInput: { height: 152, borderWidth: 1, borderColor: colors.border.default, borderRadius: radius.sm, paddingHorizontal: 18, paddingVertical: 14, color: colors.fg.primary, backgroundColor: "rgba(255,255,255,0.03)", fontSize: 16, lineHeight: 24, textAlignVertical: "top" },
   saveButton: { minHeight: 55, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border.default, borderRadius: radius.sm, backgroundColor: "rgba(0,51,150,0.22)" },
   saveText: { color: colors.fg.primary, fontSize: 14, lineHeight: 20, fontWeight: "600" },
   dimmed: { opacity: 0.6 },
