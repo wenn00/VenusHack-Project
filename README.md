@@ -80,9 +80,13 @@ seeds a demo persona ("Maya (Demo)") with a month of sample data.
 - **rPPG**: the backend measures one video at a time with one caller
   queued; `.github/workflows/keep-rppg-warm.yml` keeps the free dyno awake
   on event day.
-- **After the event**: take the Vercel deployment down and restore the
-  anonymous sign-in rate limit to 30/hour. Demo users and their rows are
-  kept.
+- **After the event**: the demo stays up so attendees can keep trying it
+  from the shared link. Demo AI is open through Nov 13, 2026 PST
+  (`DEMO_AI_UNTIL=2026-11-14T08:00:00Z`); extend or close it by changing
+  that secret. The keep-warm workflow is disabled, so the first rPPG
+  measurement after an idle spell waits 1-2 minutes for Render to wake.
+  Restore the anonymous sign-in rate limit to 30/hour, which is ample once
+  visitors no longer share one IP. Demo users and their rows are kept.
 
 ## Project layout
 
