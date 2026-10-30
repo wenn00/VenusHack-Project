@@ -13,6 +13,10 @@ on:
     - cron: "*/5 14-23 30 10 *"
     - cron: "*/5 0-6 31 10 *"
   workflow_dispatch:
+    inputs:
+      minutes:
+        description: "Minutes this run pings before handing over (max 345; small values test the handover)"
+        default: "345"
 
 env:
   HEALTH_URL: https://venushack-rppg.onrender.com/health
@@ -48,13 +52,20 @@ jobs:
       contents: read
     steps:
       - name: Ping /health every 5 minutes
+        env:
+          MINUTES: ${{ inputs.minutes }}
         run: |
+          minutes=$MINUTES
+          case "$minutes" in ''|*[!0-9]*) minutes=345 ;; esac
+          if [ "$minutes" -gt 345 ]; then minutes=345; fi
           end=$(date -u -d "$DEMO_END" +%s)
-          stop=$(( $(date +%s) + 345 * 60 ))
+          stop=$(( $(date +%s) + minutes * 60 ))
           if [ "$stop" -gt "$end" ]; then stop=$end; fi
           while [ "$(date +%s)" -lt "$stop" ]; do
             curl -fsS --max-time 120 "$HEALTH_URL" && echo " $(date -u +%H:%M:%S)" || echo "ping failed $(date -u +%H:%M:%S)"
-            sleep 300
+            left=$(( stop - $(date +%s) ))
+            if [ "$left" -gt 300 ]; then left=300; fi
+            if [ "$left" -gt 0 ]; then sleep "$left"; fi
           done
 
       - name: Hand over to a fresh run
