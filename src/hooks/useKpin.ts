@@ -39,8 +39,8 @@ export function useKpin() {
       handleEvaluation(ev);
       return ev;
     },
-    evaluateAndDispatchRppg: (vitals: VitalsLog) => {
-      const ev = evaluateRppg(vitals);
+    evaluateAndDispatchRppg: (vitals: VitalsLog, previous: VitalsLog | null) => {
+      const ev = evaluateRppg(vitals, previous);
       handleEvaluation(ev);
       return ev;
     },
