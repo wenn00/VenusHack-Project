@@ -2,17 +2,16 @@ import { PageTitle } from "@/components/ui/PageTitle";
 /**
  * Voice Journal.
  *
- * Native speech-recognition modules require a development build, which
- * isn't worth setting up for a hackathon. Instead we lean on the iOS /
- * Android keyboard's built-in dictation mic — the user taps the mic
- * glyph on their keyboard and the OS transcribes for us, no extra deps.
+ * In-app dictation uses the configured speech module on supported native
+ * builds and browsers. Typing and keyboard dictation remain available
+ * when the module or permission is unavailable.
  *
  * On Save we forward the transcript to Gemini for structured summary
  * (symptoms, mood, key concerns, red flags, recommended next step) and
  * persist both the raw transcript and the JSON summary to Supabase.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, Keyboard, StyleSheet, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { Body } from "@/components/ui/Body";
@@ -24,7 +23,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserData } from "@/contexts/UserDataContext";
 import { AiAccessError, summarizeVoiceJournal } from "@/services/gemini";
 import { supabase } from "@/services/supabase";
-import { colors, radius, spacing, typography } from "@/theme";
+import { colors, spacing, typography } from "@/theme";
+import { useDictation } from "@/hooks/useDictation";
 import { VoiceJournalSummary } from "@/types";
 
 export default function VoiceJournalScreen() {
@@ -34,8 +34,14 @@ export default function VoiceJournalScreen() {
   const [transcript, setTranscript] = useState("");
   const [summary, setSummary] = useState<VoiceJournalSummary | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const savingRef = useRef(false);
+  const savedRef = useRef(false);
+  const dictation = useDictation(setTranscript);
 
   async function handleSave() {
+    if (savingRef.current || savedRef.current || dictation.isBusy()) return;
     const trimmed = transcript.trim();
     if (!trimmed) {
       Alert.alert("Empty journal", "Type or dictate something first.");
@@ -47,6 +53,7 @@ export default function VoiceJournalScreen() {
     }
 
     Keyboard.dismiss();
+    savingRef.current = true;
     setIsSaving(true);
 
     // Try AI summarization first. If Gemini is unavailable we still save
@@ -71,7 +78,10 @@ export default function VoiceJournalScreen() {
       });
       if (error) throw error;
 
-      await refresh();
+      savedRef.current = true;
+      setSaved(true);
+      // A refresh failure must not invite a second insert of an already saved entry.
+      try { await refresh(); } catch (refreshError) { console.warn("[voice-journal] refresh failed", refreshError); }
 
       if (aiSummary) {
         setSummary(aiSummary);
@@ -83,6 +93,7 @@ export default function VoiceJournalScreen() {
     } catch (err) {
       Alert.alert("Could not save", (err as Error).message);
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
   }
@@ -94,7 +105,7 @@ export default function VoiceJournalScreen() {
     return (
       <Screen>
         <PageTitle>Saved & analyzed</PageTitle>
-        <Body tone="muted">Here's what Kairos picked out from what you said.</Body>
+        <Body tone="muted">Here&apos;s what Kairos picked out from what you said.</Body>
 
         <Card>
           <Heading level={3}>Mood</Heading>
@@ -143,6 +154,8 @@ export default function VoiceJournalScreen() {
           label="New entry"
           variant="ghost"
           onPress={() => {
+            savedRef.current = false;
+            setSaved(false);
             setSummary(null);
             setTranscript("");
           }}
@@ -156,11 +169,20 @@ export default function VoiceJournalScreen() {
   return (
     <Screen>
       <PageTitle>Voice journal</PageTitle>
+      <Body tone="muted">A moment to check in with yourself</Body>
       <Body tone="muted">
-        Tell Kairos how you're feeling today — symptoms, mood, anything on your
-        mind. We'll pull out the important parts.
+        Tell Kairos how you&apos;re feeling today — symptoms, mood, anything on your
+        mind. We&apos;ll pull out the important parts.
       </Body>
 
+      <Button
+        label={dictation.stopping ? "Finishing dictation…" : dictation.pending ? "Starting microphone…" : dictation.listening ? "Stop dictation" : "Start dictation"}
+        disabled={isSaving || saved || dictation.pending || dictation.stopping}
+        onPress={() => dictation.listening ? dictation.stop() : void dictation.start(transcript)}
+      />
+      {dictation.listening && <Body accessibilityLiveRegion="polite">Listening… speak naturally. Stop before reviewing and saving.</Body>}
+      {!!dictation.error && <View accessibilityRole="alert"><Body>{dictation.error}</Body></View>}
+      <Body size="sm" tone="muted">Speech recognition uses your device or browser&apos;s speech service and may send audio to its provider. Review the transcript before saving.</Body>
       <Card>
         <TextInput
           value={transcript}
@@ -170,7 +192,7 @@ export default function VoiceJournalScreen() {
           placeholder="I've had a headache since this morning and feel more tired than usual..."
           placeholderTextColor={colors.fg.muted}
           style={styles.input}
-          editable={!isSaving}
+          editable={!isSaving && !saved && !dictation.listening && !dictation.pending}
           textAlignVertical="top"
         />
       </Card>
@@ -185,7 +207,7 @@ export default function VoiceJournalScreen() {
       <Button
         label={isSaving ? "Saving & analyzing..." : "Save & analyze"}
         onPress={handleSave}
-        disabled={isSaving || !transcript.trim()}
+        disabled={isSaving || saved || dictation.listening || dictation.pending || !transcript.trim()}
       />
       <Button
         label="Cancel"
