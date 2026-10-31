@@ -59,3 +59,7 @@ expo-env.d.ts
 
 # Vercel CLI project link (local only)
 .vercel
+
+# Tool output: layout-check screenshots and Playwright CLI logs
+/output/
+/.playwright-cli/
