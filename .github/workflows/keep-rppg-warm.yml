@@ -2,23 +2,79 @@ name: Keep rPPG warm (event day)
 
 # Render's free dyno sleeps after ~15 idle minutes and then takes 70-90 s
 # to wake. During the conference (Fri 2026-10-30, 07:00-23:55 PDT = UTC-7)
-# ping it every 5 minutes; the short cadence absorbs Actions' schedule delays.
+# ping it every 5 minutes.
+#
+# Scheduled runs proved unreliable: on event morning GitHub fired none of
+# them for hours. A manual run (workflow_dispatch) therefore keeps pinging
+# from inside one job for up to ~6 hours, then dispatches its successor, so
+# one start covers the rest of the event. The schedule stays as a backup.
 on:
   schedule:
     - cron: "*/5 14-23 30 10 *"
     - cron: "*/5 0-6 31 10 *"
   workflow_dispatch:
+    inputs:
+      minutes:
+        description: "Minutes this run pings before handing over (max 345; small values test the handover)"
+        default: "345"
+
+env:
+  HEALTH_URL: https://venushack-rppg.onrender.com/health
+  # Matches the demo AI window (DEMO_AI_UNTIL).
+  DEMO_END: "2026-10-31T07:00:00Z"
 
 jobs:
   ping:
+    if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Ping /health
         run: |
           # The cron matches Oct 30/31 every year; only the event year pings.
-          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date -u +%Y)" != "2026" ]; then
+          if [ "$(date -u +%Y)" != "2026" ]; then
             echo "Not the event year; skipping."
             exit 0
           fi
-          curl -fsS --max-time 120 https://venushack-rppg.onrender.com/health
+          curl -fsS --max-time 120 "$HEALTH_URL"
+
+  keep-warm:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    # GitHub-hosted jobs stop at 6 hours; hand over before that.
+    timeout-minutes: 355
+    # One loop at a time: a successor waits for the current run to finish.
+    concurrency:
+      group: keep-rppg-warm-loop
+      cancel-in-progress: false
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Ping /health every 5 minutes
+        env:
+          MINUTES: ${{ inputs.minutes }}
+        run: |
+          minutes=$MINUTES
+          case "$minutes" in ''|*[!0-9]*) minutes=345 ;; esac
+          if [ "$minutes" -gt 345 ]; then minutes=345; fi
+          end=$(date -u -d "$DEMO_END" +%s)
+          stop=$(( $(date +%s) + minutes * 60 ))
+          if [ "$stop" -gt "$end" ]; then stop=$end; fi
+          while [ "$(date +%s)" -lt "$stop" ]; do
+            curl -fsS --max-time 120 "$HEALTH_URL" && echo " $(date -u +%H:%M:%S)" || echo "ping failed $(date -u +%H:%M:%S)"
+            left=$(( stop - $(date +%s) ))
+            if [ "$left" -gt 300 ]; then left=300; fi
+            if [ "$left" -gt 0 ]; then sleep "$left"; fi
+          done
+
+      - name: Hand over to a fresh run
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(date +%s)" -lt "$(date -u -d "$DEMO_END" +%s)" ]; then
+            gh workflow run keep-rppg-warm.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"
+          else
+            echo "Demo window closed; not starting another run."
+          fi
